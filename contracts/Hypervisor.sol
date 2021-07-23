@@ -40,9 +40,9 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
     int24 public limitLower;
     int24 public limitUpper;
 
-    // The following three variables server the very important purpose of
+    // The following three variables serve the very important purpose of
     // limiting inventory risk and the arbitrage opportunities made possible by
-    // our instant deposit & withdrawal.
+    // instant deposit & withdrawal.
     // If, in the ETHUSDT pool at an ETH price of 2500 USDT, I deposit 100k
     // USDT in a pool with 40 WETH, and then directly afterwards withdraw 50k
     // USDT and 20 WETH (this is of equivalent dollar value), I drastically
@@ -163,6 +163,8 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
         amount0 = base0.add(limit0).add(unusedAmount0);
         amount1 = base1.add(limit1).add(unusedAmount1);
 
+        // TODO: IUniversalVault(from) may not work
+        
         require(from == msg.sender || IUniversalVault(from).owner() == msg.sender, "Sender must own the tokens");
         _burn(from, shares);
 

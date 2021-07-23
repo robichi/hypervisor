@@ -2,24 +2,37 @@
 pragma solidity =0.7.6;
 
 import {IUniswapV3Factory} from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
-
 import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
-
 import {Hypervisor} from './Hypervisor.sol';
+import {AddressSet} from './lib/AddressSet.sol';
 
-contract HypervisorFactory is Ownable {
+contract ICHIVisorFactory is Ownable {
+
+    using AddressSet for AddressSet.Set;
+
+    address constant NULL_ADDRESS = address(0);
     IUniswapV3Factory public uniswapV3Factory;
-    mapping(address => mapping(address => mapping(uint24 => address))) public getHypervisor; // toke0, token1, fee -> hypervisor address
-    address[] public allHypervisors;
+    
+    struct Tradeable {
+        AddressSet.Set visorSet;
+    }
+    AddressSet.Set tradeableSet;
+    mapping(address => Tradeable) tradeable;
+    
+    struct Visor {
+        address pool;
+        address token0;
+        address token1;
+        uint fee;
+    }
+    AddressSet.Set visorSet;
+    mapping(address => address) public visorPool;
+    mapping(address => Visor) public visor;
 
-    event HypervisorCreated(address token0, address token1, uint24 fee, address hypervisor, uint256);
+    event HypervisorCreated(address hypervisor, address pool, address token0, address token1, uint24 fee, uint256 count);
 
     constructor(address _uniswapV3Factory) {
         uniswapV3Factory = IUniswapV3Factory(_uniswapV3Factory);
-    }
-
-    function allHypervisorsLength() external view returns (uint256) {
-        return allHypervisors.length;
     }
 
     function createHypervisor(
@@ -27,23 +40,57 @@ contract HypervisorFactory is Ownable {
         address tokenB,
         uint24 fee
     ) external onlyOwner returns (address hypervisor) {
-        require(tokenA != tokenB, 'SF: IDENTICAL_ADDRESSES'); // TODO: using PoolAddress library (uniswap-v3-periphery)
-        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
-        require(token0 != address(0), 'SF: ZERO_ADDRESS');
-        require(getHypervisor[token0][token1][fee] == address(0), 'SF: HYPERVISOR_EXISTS');
+        (address token0, address token1) = _orderedPair(tokenA, tokenB);
+        require(token0 != token1, 'ICHIVisorFactory.createHypervisor: Identical token addresses');
+        require(token0 != NULL_ADDRESS, 'ICHIVisorFactory.createHypervisor: token undefined');
+
         int24 tickSpacing = uniswapV3Factory.feeAmountTickSpacing(fee);
-        require(tickSpacing != 0, 'SF: INCORRECT_FEE');
+        require(tickSpacing != 0, 'ICHIVisorFactory.createHypervisor: Incorrect Fee');
+
         address pool = uniswapV3Factory.getPool(token0, token1, fee);
-        if (pool == address(0)) {
+
+        // create uniswap pool if needed
+        if (pool == NULL_ADDRESS) {
             pool = uniswapV3Factory.createPool(token0, token1, fee);
         }
-        hypervisor = address(
-            new Hypervisor{salt: keccak256(abi.encodePacked(token0, token1, fee, tickSpacing))}(pool, owner())
-        );
 
-        getHypervisor[token0][token1][fee] = hypervisor;
-        getHypervisor[token1][token0][fee] = hypervisor; // populate mapping in the reverse direction
-        allHypervisors.push(hypervisor);
-        emit HypervisorCreated(token0, token1, fee, hypervisor, allHypervisors.length);
+        // deploy the hypervisor
+        hypervisor = address(new Hypervisor{salt: keccak256(abi.encodePacked(token0, token1, fee, tickSpacing))}(pool, address(this)));
+        require(visorPool[hypervisor] == NULL_ADDRESS, 'ICHIVisorFactory.createHypervisor: Hypervisor exists');
+
+        // update the discoverable state
+        Visor memory newVisor = Visor({
+            pool: pool,
+            token0: token0,
+            token1: token1,
+            fee: fee
+        });
+        visorSet.insert(hypervisor, 'ICHIVisorFactory.createHypervisor: (500) hypervisor id collision');
+        tradeable[token0].visorSet.insert(hypervisor, 'ICHIVisorFactory.createHypervisor: (500) token0 collision');
+        tradeable[token1].visorSet.insert(hypervisor, 'ICHIVisorFactory.createHypervisor: (500) token1 collision');
+        visorPool[hypervisor] = pool;
+        visor[hypervisor] = newVisor;
+
+        emit HypervisorCreated(hypervisor, pool, token0, token1, fee, visorSet.count());
+    }
+
+    function allVisorsLength() external view returns (uint256) {
+        return visorSet.count();
+    }
+
+    function visorAtIndex(uint index) external view returns(address) {
+        return visorSet.keyAtIndex(index);
+    }
+
+    function tokenVisorCount(address token) external view returns(uint) {
+        return tradeable[token].visorSet.count();
+    }
+
+    function tokenVisorAtIndex(address token, uint index) external view returns(address) {
+        return tradeable[token].visorSet.keyAtIndex(index);
+    }
+
+    function _orderedPair(address a, address b) private pure returns(address, address) {
+        return a < b ? (a, b) : (b, a);
     }
 }
