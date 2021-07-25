@@ -162,9 +162,7 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
 
         amount0 = base0.add(limit0).add(unusedAmount0);
         amount1 = base1.add(limit1).add(unusedAmount1);
-
-        // TODO: IUniversalVault(from) may not work
-        
+    
         require(from == msg.sender || IUniversalVault(from).owner() == msg.sender, "Sender must own the tokens");
         _burn(from, shares);
 
