@@ -54,29 +54,31 @@ contract ICHIVisor is ERC20, Ownable {
     );
 
     constructor(
+        address _owner,
         address _uniswapV3Factory, 
         address _tokenA,
         bool _allowTokenA,
         address _tokenB,
         bool _allowTokenB,
         uint24 _fee
-    ) 
+    )
         ERC20("xICHI Liquidity", "xICHI")
     {
+        transferOwnership(_owner);
         fee = _fee;
         (address _token0, address _token1) = _orderedPair(_tokenA, _tokenB);
         require(_tokenA != _tokenB, 'ICHIVisor.constructor: Identical token addresses');
         require(_token0 != NULL_ADDRESS, 'ICHIVisor.constructor: token undefined');
 
-        // configure policy
+        // configure the policy
         bool _allowToken0 = (_token0 == _tokenA) ? _allowTokenA : _allowTokenB;
         bool _allowToken1 = (_token1 == _tokenB) ? _allowTokenB : _allowTokenA;
 
-        // inspect uniswap pool
+        // inspect the uniswap pool
         int24 tickSpacing = IUniswapV3Factory(_uniswapV3Factory).feeAmountTickSpacing(_fee);
         require(tickSpacing != 0, 'ICHIVisor.constructor: Incorrect Fee');
 
-        address _pool = IUniswapV3Factory(_uniswapV3Factory).getPool(_tokenA, _tokenB, _fee); // TODO: Confirm Uniswap orders ths correctly
+        address _pool = IUniswapV3Factory(_uniswapV3Factory).getPool(_token0, _token1, _fee);
 
         // create uniswap pool if needed
         if (_pool == NULL_ADDRESS) {
@@ -84,9 +86,24 @@ contract ICHIVisor is ERC20, Ownable {
         }
 
         // deploy the hypervisor
-        address _hypervisor = address(new Hypervisor{salt: keccak256(abi.encodePacked(address(this), _token0, _token1, _fee, tickSpacing))}(_pool, address(this)));
+        address _hypervisor = address(
+            new Hypervisor{
+                salt: keccak256(
+                    abi.encodePacked(
+                        _token0, 
+                        _token1, 
+                        _fee, 
+                        tickSpacing
+                    )
+                )
+            }
+            (
+                _pool, 
+                address(this)
+            )
+        );
         
-        // immutables
+        // set immutables
         uniswapV3Factory = _uniswapV3Factory;
         hypervisor = _hypervisor;
         pool = _pool;
@@ -104,7 +121,9 @@ contract ICHIVisor is ERC20, Ownable {
         address to
     ) external returns (uint256 shares) {
         require(allowToken0 || deposit0 == 0, 'ICHIVisor.deposit: token0 prohibited by ICHIVisor policy');
-        require(allowToken1 || deposit1 == 0, 'ICHIVisor.deposit: token0 prohibited ICHIVisor policy');
+        require(allowToken1 || deposit1 == 0, 'ICHIVisor.deposit: token0 prohibited by ICHIVisor policy');
+        ERC20(token0).transferFrom(msg.sender, address(this), deposit0);
+        ERC20(token1).transferFrom(msg.sender, address(this), deposit0);
         shares = Hypervisor(hypervisor).deposit(deposit0, deposit1, to);
         emit Deposit(msg.sender, to, shares, deposit0, deposit1);
     }
@@ -116,11 +135,10 @@ contract ICHIVisor is ERC20, Ownable {
     ) external returns (uint256 amount0, uint256 amount1) {
         (amount0, amount1) = Hypervisor(hypervisor).withdraw(shares, to, from);
         _burn(from, shares);
+        ERC20(token0).transfer(msg.sender, amount0);
+        ERC20(token1).transfer(msg.sender, amount1);
         emit Withdraw(from, to, shares, amount0, amount1);
     }
-
-    // TODO: Is there any implied lower/upper range implication to make this more automated? 
-    // TODO: If one side is prohibited, then ensure it is bound to the current price
     
     function rebalance(
         int24 _baseLower,

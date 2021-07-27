@@ -29,8 +29,17 @@ contract ICHIVisorFactory is Ownable {
     AddressSet.Set visorSet;
     mapping(address => IchiVisor) public ichiVisor;
 
-    event UniswapV3Factory(address sender, address uniswapV3);
-    event IchiVisorCreated(address sender, address ichiVisor, address token0, address token1, uint24 fee, uint256 count);
+    event UniswapV3Factory(
+        address sender, 
+        address uniswapV3);
+
+    event IchiVisorCreated(
+        address sender, 
+        address ichiVisor, 
+        address token0, 
+        address token1, 
+        uint24 fee, 
+        uint256 count);
 
     constructor(address _uniswapV3Factory) {
         uniswapV3Factory = IUniswapV3Factory(_uniswapV3Factory);
@@ -56,6 +65,7 @@ contract ICHIVisorFactory is Ownable {
         newIchiVisor = address(new ICHIVisor{salt: keccak256(abi.encodePacked(
             visorSet.count()
         ))}(
+            owner(),
             address(uniswapV3Factory),
             token0, 
             allowToken0, 

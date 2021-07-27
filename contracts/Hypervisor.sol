@@ -55,6 +55,7 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
     // & slippage--if someone were to try to do this with a large amount of
     // capital they would be overwhelmed by the gas fees necessary to call
     // deposit & withdrawal many times.
+
     uint256 public deposit0Max;
     uint256 public deposit1Max;
     uint256 public maxTotalSupply;
@@ -78,6 +79,7 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
         maxTotalSupply = 0; // no cap
         deposit0Max = uint256(-1); // max uint256
         deposit1Max = uint256(-1); // max uint256
+        emit DeployHypervisor(msg.sender, _pool, _owner);
     }
 
     // @notice Distributes shares to depositor equal to the token1 value of his
@@ -187,7 +189,7 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
         int24 _baseUpper,
         int24 _limitLower,
         int24 _limitUpper,
-        address feeRecipient,
+        address /* feeRecipient */,
         int256 swapQuantity
     ) external override onlyOwner {
         require(_baseLower < _baseUpper && _baseLower % tickSpacing == 0 && _baseUpper % tickSpacing == 0,
@@ -214,9 +216,11 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
         _burnLiquidity(baseLower, baseUpper, baseLiquidity, address(this), true);
         _burnLiquidity(limitLower, limitUpper, limitLiquidity, address(this), true);
 
-        // transfer 10% of fees for VISR buybacks
-        if(fees0 > 0) token0.safeTransfer(feeRecipient, fees0.div(10));
-        if(fees1 > 0) token1.safeTransfer(feeRecipient, fees1.div(10));
+        // transfer fees (mod)
+        /*
+        if(fees0 > 0) token0.safeTransfer(feeRecipient, fees0.div(feeDivisor));
+        if(fees1 > 0) token1.safeTransfer(feeRecipient, fees1.div(feeDivisor));
+        */
 
         emit Rebalance(
             currentTick(),
