@@ -26,6 +26,11 @@ interface IVault {
 
     function getTotalAmounts() external view returns (uint256, uint256);
 
+    event DeployHypervisor(
+        address sender, 
+        address _pool, 
+        address _owner);
+
     event Deposit(
         address indexed sender,
         address indexed to,
