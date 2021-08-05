@@ -125,9 +125,9 @@ contract ICHIVisor is ERC20, Ownable {
         address to
     ) external returns (uint256 shares) {
         require(allowToken0 || deposit0 == 0, 'ICHIVisor.deposit: token0 prohibited by ICHIVisor policy');
-        require(allowToken1 || deposit1 == 0, 'ICHIVisor.deposit: token0 prohibited by ICHIVisor policy');
+        require(allowToken1 || deposit1 == 0, 'ICHIVisor.deposit: token1 prohibited by ICHIVisor policy');
         ERC20(token0).transferFrom(msg.sender, address(this), deposit0);
-        ERC20(token1).transferFrom(msg.sender, address(this), deposit0);
+        ERC20(token1).transferFrom(msg.sender, address(this), deposit1);
         shares = Hypervisor(hypervisor).deposit(deposit0, deposit1, to);
         emit Deposit(msg.sender, to, shares, deposit0, deposit1);
     }
