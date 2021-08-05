@@ -53,6 +53,10 @@ contract ICHIVisor is ERC20, Ownable {
         int256 swapQuantity
     );
 
+    event SetDepositMax(
+        uint _deposit0Max, 
+        uint _deposit1Max);
+
     constructor(
         address _owner,
         address _uniswapV3Factory, 
@@ -166,6 +170,13 @@ contract ICHIVisor is ERC20, Ownable {
             feeRecipient,
             swapQuantity
         );
+    }
+
+    // @param _deposit0Max The maximum amount of token0 allowed in a deposit
+    // @param _deposit1Max The maximum amount of token1 allowed in a deposit
+    function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external onlyOwner {
+        Hypervisor(hypervisor).setDepositMax(_deposit0Max, _deposit1Max);
+        emit SetDepositMax(_deposit0Max, _deposit1Max);
     }
     
     function _orderedPair(address a, address b) private pure returns(address, address) {
