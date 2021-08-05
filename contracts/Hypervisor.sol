@@ -89,6 +89,9 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
     // @param deposit1 Amount of token0 transfered from sender to Hypervisor
     // @param to Address to which liquidity tokens are minted
     // @return shares Quantity of liquidity tokens minted as a result of deposit
+
+    // TODO: Consider onlyOwner to block direction user interactions
+
     function deposit(
         uint256 deposit0,
         uint256 deposit1,
@@ -197,6 +200,7 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
         require(_limitLower < _limitUpper && _limitLower % tickSpacing == 0 && _limitUpper % tickSpacing == 0,
                 "limit position invalid");
 
+        // TODO: Can this block be removed? 
         // update fees
         (uint128 baseLiquidity,,) = _position(baseLower, baseUpper);
         if (baseLiquidity > 0) {
@@ -208,11 +212,11 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
         }
 
         // Withdraw all liquidity and collect all fees from Uniswap pool
-        (, uint256 feesLimit0, uint256 feesLimit1) = _position(baseLower, baseUpper);
-        (, uint256 feesBase0, uint256 feesBase1)  = _position(limitLower, limitUpper);
+        // (, uint256 feesLimit0, uint256 feesLimit1) = _position(baseLower, baseUpper);
+        // (, uint256 feesBase0, uint256 feesBase1)  = _position(limitLower, limitUpper);
 
-        uint256 fees0 = feesBase0.add(feesLimit0);
-        uint256 fees1 = feesBase1.add(feesLimit1);
+        // uint256 fees0 = feesBase0.add(feesLimit0);
+        // uint256 fees1 = feesBase1.add(feesLimit1);
         _burnLiquidity(baseLower, baseUpper, baseLiquidity, address(this), true);
         _burnLiquidity(limitLower, limitUpper, limitLiquidity, address(this), true);
 
