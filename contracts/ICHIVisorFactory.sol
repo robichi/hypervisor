@@ -11,7 +11,9 @@ contract ICHIVisorFactory is Ownable {
     using AddressSet for AddressSet.Set;
 
     address constant NULL_ADDRESS = address(0);
-    IUniswapV3Factory public uniswapV3Factory;
+
+    IUniswapV3Factory public immutable uniswapV3Factory;
+    address public immutable hypervisorFactory;
     
     struct Tradeable {
         AddressSet.Set visorSet;
@@ -41,8 +43,9 @@ contract ICHIVisorFactory is Ownable {
         uint24 fee, 
         uint256 count);
 
-    constructor(address _uniswapV3Factory) {
+    constructor(address _uniswapV3Factory, address _hypervisorFactory) {
         uniswapV3Factory = IUniswapV3Factory(_uniswapV3Factory);
+        hypervisorFactory = _hypervisorFactory;
         emit UniswapV3Factory(msg.sender, _uniswapV3Factory);
     }
 
@@ -52,7 +55,7 @@ contract ICHIVisorFactory is Ownable {
         address tokenB,
         bool allowTokenB,
         uint24 fee
-    ) external onlyOwner returns (address newIchiVisor) {
+    ) external onlyOwner returns (address newIchiVisor, address hypervisor) {
         (address token0, address token1) = _orderedPair(tokenA, tokenB);
         require(token0 != token1, 'ICHIVisorFactory.createIchiVisor: Identical token addresses');
         require(token0 != NULL_ADDRESS, 'ICHIVisorFactory.createIchiVisor:: token undefined');
@@ -65,7 +68,7 @@ contract ICHIVisorFactory is Ownable {
         newIchiVisor = address(new ICHIVisor{salt: keccak256(abi.encodePacked(
             visorSet.count()
         ))}(
-            owner(),
+            hypervisorFactory,
             address(uniswapV3Factory),
             token0, 
             allowToken0, 
@@ -73,6 +76,9 @@ contract ICHIVisorFactory is Ownable {
             allowToken1, 
             fee
         ));
+
+        hypervisor = IICHIVisor(newIchiVisor).hypervisor();
+        IHypervisorFactory(hypervisorFactory).subordinateHypervisor(hypervisor, newIchiVisor);
 
         // update the discoverable state
         IchiVisor memory newVisor = IchiVisor({

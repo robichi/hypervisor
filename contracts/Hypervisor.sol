@@ -4,6 +4,7 @@ pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/math/SignedSafeMath.sol";
+import '@openzeppelin/contracts/access/Ownable.sol';
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
@@ -15,19 +16,17 @@ import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 
-import "../interfaces/IVault.sol";
-import "../interfaces/IUniversalVault.sol";
+import "../interfaces/IHypervisor.sol";
+// import "../interfaces/IUniversalVault.sol";
 
 // @title Hypervisor
 // @notice A Uniswap V2-like interface with fungible liquidity to Uniswap V3
 // which allows for arbitrary liquidity provision: one-sided, lop-sided, and
 // balanced.
-contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, ERC20 {
+contract Hypervisor is IHypervisor, IUniswapV3MintCallback, IUniswapV3SwapCallback, ERC20, Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
     using SignedSafeMath for int256;
-
-    address public owner;
 
     IUniswapV3Pool public pool;
     IERC20 public token0;
@@ -74,8 +73,6 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
         fee = pool.fee();
         tickSpacing = pool.tickSpacing();
 
-        owner = _owner;
-
         maxTotalSupply = 0; // no cap
         deposit0Max = uint256(-1); // max uint256
         deposit1Max = uint256(-1); // max uint256
@@ -96,7 +93,7 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
         uint256 deposit0,
         uint256 deposit1,
         address to
-    ) external override returns (uint256 shares) {
+    ) external override onlyOwner returns (uint256 shares) {
         require(deposit0 > 0 || deposit1 > 0, "deposits must be nonzero");
         require(deposit0 < deposit0Max && deposit1 < deposit1Max, "deposits must be less than maximum amounts");
         require(to != address(0) && to != address(this), "to");
@@ -148,7 +145,7 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
         uint256 shares,
         address to,
         address from
-    ) external override returns (uint256 amount0, uint256 amount1) {
+    ) external override onlyOwner returns (uint256 amount0, uint256 amount1) {
         require(shares > 0, "shares");
         require(to != address(0), "to");
 
@@ -168,7 +165,7 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
         amount0 = base0.add(limit0).add(unusedAmount0);
         amount1 = base1.add(limit1).add(unusedAmount1);
     
-        require(from == msg.sender || IUniversalVault(from).owner() == msg.sender, "Sender must own the tokens");
+        require(from == msg.sender /* || IUniversalVault(from).owner() == msg.sender */, "Sender must own the tokens");
         _burn(from, shares);
 
         emit Withdraw(from, to, shares, amount0, amount1);
@@ -462,13 +459,8 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
 
     // @param _deposit0Max The maximum amount of token0 allowed in a deposit
     // @param _deposit1Max The maximum amount of token1 allowed in a deposit
-    function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external onlyOwner {
+    function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external override onlyOwner {
         deposit0Max = _deposit0Max;
         deposit1Max = _deposit1Max;
-    }
-
-    modifier onlyOwner {
-        require(msg.sender == owner, "only owner");
-        _;
     }
 }
