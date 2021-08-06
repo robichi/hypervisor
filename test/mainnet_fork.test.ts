@@ -2,7 +2,7 @@ import { ethers, waffle } from 'hardhat'
 import { BigNumber, BigNumberish, constants } from 'ethers'
 import chai from 'chai'
 import { expect } from 'chai'
-import { fixture, hypervisorTestFixture } from "./shared/fixtures"
+import { fixture, ichiVisorTestFixture } from "./shared/fixtures"
 import { solidity } from "ethereum-waffle"
 
 chai.use(solidity)
@@ -20,7 +20,7 @@ import {
     SwapRouter,
     UniswapV3Factory,
     IUniswapV3Pool,
-    HypervisorFactory,
+    ICHIVisorFactory,
     Hypervisor,
     NonfungiblePositionManager,
     TestERC20
@@ -35,7 +35,7 @@ describe.skip('Hypervisors on Mainnet Fork', () => {
     let usdtAddress = '0xdAC17F958D2ee523a2206206994597C13D831ec7'
     let usdcAddress = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
     let uniswapV3Factory = '0x1F98431c8aD98523631AE4a59f267346ea31F984'
-    let hypervisorFactory: HypervisorFactory
+    let ichiVisorFactory: ICHIVisorFactory
     let hypervisor: Hypervisor
     let usdcEthHypervisor: Hypervisor
     let usdt: TestERC20
@@ -44,11 +44,11 @@ describe.skip('Hypervisors on Mainnet Fork', () => {
 
     beforeEach('deploy contracts', async () => {
         let hypervisorFactoryFactory = await ethers.getContractFactory('HypervisorFactory')
-        hypervisorFactory = (await hypervisorFactoryFactory.deploy(uniswapV3Factory)) as HypervisorFactory
-        await hypervisorFactory.createHypervisor(wethAddress, usdtAddress, FeeAmount.MEDIUM)
-        await hypervisorFactory.createHypervisor(usdcAddress, wethAddress, FeeAmount.MEDIUM)
-        const hypervisorAddress = await hypervisorFactory.getHypervisor(wethAddress, usdtAddress, FeeAmount.MEDIUM)
-        const usdcEthHypervisorAddress = await hypervisorFactory.getHypervisor(usdcAddress, wethAddress, FeeAmount.MEDIUM)
+        ichiVisorFactory = (await hypervisorFactoryFactory.deploy(uniswapV3Factory)) as ICHIVisorFactory
+        await ichiVisorFactory.createHypervisor(wethAddress, usdtAddress, FeeAmount.MEDIUM)
+        await ichiVisorFactory.createHypervisor(usdcAddress, wethAddress, FeeAmount.MEDIUM)
+        const hypervisorAddress = await ichiVisorFactory.getHypervisor(wethAddress, usdtAddress, FeeAmount.MEDIUM)
+        const usdcEthHypervisorAddress = await ichiVisorFactory.getHypervisor(usdcAddress, wethAddress, FeeAmount.MEDIUM)
         hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
         usdcEthHypervisor = (await ethers.getContractAt('Hypervisor', usdcEthHypervisorAddress)) as Hypervisor
 

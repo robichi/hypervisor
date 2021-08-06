@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity =0.7.6;
+pragma solidity 0.7.6;
 
-import {ICHIVisor} from './ICHIVisor.sol';
-import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
-import {IUniswapV3Factory} from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
-import {AddressSet} from './lib/AddressSet.sol';
+import './ICHIVisor.sol';
+import '@openzeppelin/contracts/access/Ownable.sol';
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import './lib/AddressSet.sol';
 
 contract ICHIVisorFactory is Ownable {
 

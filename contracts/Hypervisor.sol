@@ -230,8 +230,8 @@ contract Hypervisor is IVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, E
             currentTick(),
             token0.balanceOf(address(this)),
             token1.balanceOf(address(this)),
-            fees0,
-            fees1,
+            // fees0,
+            // fees1,
             totalSupply()
         );
 

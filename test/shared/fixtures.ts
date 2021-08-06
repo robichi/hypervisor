@@ -6,7 +6,7 @@ import {
     UniswapV3Factory,
     SwapRouter,
     NonfungiblePositionManager,
-    HypervisorFactory,
+    ICHIVisorFactory,
     MockUniswapV3PoolDeployer
 } from "../../typechain";
 
@@ -53,14 +53,14 @@ async function tokensFixture(): Promise<TokensFixture> {
     return { token0, token1, token2 }
 }
 
-interface HypervisorFactoryFixture {
-    hypervisorFactory: HypervisorFactory
+interface ICHIVisorFactoryFixture {
+    ichiVisorFactory: ICHIVisorFactory
 }
 
-async function hypervisorFactoryFixture(factory: UniswapV3Factory): Promise<HypervisorFactoryFixture> {
-    const hypervisorFactoryFactory = await ethers.getContractFactory('HypervisorFactory')
-    const hypervisorFactory = (await hypervisorFactoryFactory.deploy(factory.address)) as HypervisorFactory
-    return { hypervisorFactory }
+async function ichiVisorFactoryFixture(factory: UniswapV3Factory): Promise<ICHIVisorFactoryFixture> {
+    const ichiVisorFactoryFactory = await ethers.getContractFactory('ICHIVisorFactory')
+    const ichiVisorFactory = (await ichiVisorFactoryFactory.deploy(factory.address)) as ICHIVisorFactory
+    return { ichiVisorFactory }
 }
 
 interface OurFactoryFixture {
@@ -91,12 +91,12 @@ export const fixture: Fixture<allContractsFixture> = async function (): Promise<
     }
 }
 
-type HypervisorTestFixture = UniswapV3Fixture & TokensFixture & HypervisorFactoryFixture
+type ICHIVisorTestFixture = UniswapV3Fixture & TokensFixture & ICHIVisorFactoryFixture
 
-export const hypervisorTestFixture: Fixture<HypervisorTestFixture> = async function (): Promise<HypervisorTestFixture> {
+export const ichiVisorTestFixture: Fixture<ICHIVisorTestFixture> = async function (): Promise<ICHIVisorTestFixture> {
     const { factory, router, nft } = await uniswapV3Fixture()
     const { token0, token1, token2 } = await tokensFixture()
-    const { hypervisorFactory } = await hypervisorFactoryFixture(factory)
+    const { ichiVisorFactory } = await ichiVisorFactoryFixture(factory)
 
     return {
         token0,
@@ -105,6 +105,6 @@ export const hypervisorTestFixture: Fixture<HypervisorTestFixture> = async funct
         factory,
         router,
         nft,
-        hypervisorFactory,
+        ichiVisorFactory,
     }
 }

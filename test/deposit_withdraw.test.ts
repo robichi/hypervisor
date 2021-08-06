@@ -2,7 +2,7 @@ import { ethers, waffle } from 'hardhat'
 import { BigNumber, BigNumberish, constants } from 'ethers'
 import chai from 'chai'
 import { expect } from 'chai'
-import { fixture, hypervisorTestFixture } from "./shared/fixtures"
+import { fixture, ichiVisorTestFixture } from "./shared/fixtures"
 import { solidity } from "ethereum-waffle"
 
 chai.use(solidity)
@@ -20,7 +20,7 @@ import {
     SwapRouter,
     UniswapV3Factory,
     IUniswapV3Pool,
-    HypervisorFactory,
+    ICHIVisorFactory,
     Hypervisor,
     NonfungiblePositionManager,
     TestERC20
@@ -43,7 +43,7 @@ describe('Hypervisor', () => {
     let token1: TestERC20
     let token2: TestERC20
     let uniswapPool: IUniswapV3Pool
-    let hypervisorFactory: HypervisorFactory
+    let ichiVisorFactory: ICHIVisorFactory
     let hypervisor: Hypervisor
 
     let loadFixture: ReturnType<typeof createFixtureLoader>
@@ -52,9 +52,9 @@ describe('Hypervisor', () => {
     })
 
     beforeEach('deploy contracts', async () => {
-        ({ token0, token1, token2, factory, router, nft, hypervisorFactory } = await loadFixture(hypervisorTestFixture))
-        await hypervisorFactory.createHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
-        const hypervisorAddress = await hypervisorFactory.getHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
+        ({ token0, token1, token2, factory, router, nft, ichiVisorFactory } = await loadFixture(ichiVisorTestFixture))
+        await ichiVisorFactory.createHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
+        const hypervisorAddress = await ichiVisorFactory.getHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
         hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
 
         const poolAddress = await factory.getPool(token0.address, token1.address, FeeAmount.MEDIUM)
@@ -493,7 +493,7 @@ describe('ETHUSDT Hypervisor', () => {
     let token1: TestERC20
     let token2: TestERC20
     let uniswapPool: IUniswapV3Pool
-    let hypervisorFactory: HypervisorFactory
+    let ichiVisorFactory: ICHIVisorFactory
     let hypervisor: Hypervisor
 
     let loadFixture: ReturnType<typeof createFixtureLoader>
@@ -502,9 +502,9 @@ describe('ETHUSDT Hypervisor', () => {
     })
 
     beforeEach('deploy contracts', async () => {
-        ({ token0, token1, token2, factory, router, nft, hypervisorFactory } = await loadFixture(hypervisorTestFixture))
-        await hypervisorFactory.createHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
-        const hypervisorAddress = await hypervisorFactory.getHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
+        ({ token0, token1, token2, factory, router, nft, ichiVisorFactory } = await loadFixture(ichiVisorTestFixture))
+        await ichiVisorFactory.createHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
+        const hypervisorAddress = await ichiVisorFactory.getHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
         hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
 
         const poolAddress = await factory.getPool(token0.address, token1.address, FeeAmount.MEDIUM)

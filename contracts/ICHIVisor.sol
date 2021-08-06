@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity =0.7.6;
+pragma solidity 0.7.6;
 
-import {IUniswapV3Factory} from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
-import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
-import {Hypervisor} from './Hypervisor.sol';
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import '@openzeppelin/contracts/access/Ownable.sol';
+import './Hypervisor.sol';
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract ICHIVisor is ERC20, Ownable {
