@@ -23,7 +23,8 @@ import {
     ICHIVisorFactory,
     Hypervisor,
     NonfungiblePositionManager,
-    TestERC20
+    TestERC20,
+    IHypervisorFactory
 } from "../typechain"
 
 const createFixtureLoader = waffle.createFixtureLoader
@@ -53,7 +54,11 @@ describe('Hypervisor', () => {
 
     beforeEach('deploy contracts', async () => {
         ({ token0, token1, token2, factory, router, nft, ichiVisorFactory } = await loadFixture(ichiVisorTestFixture))
-        await ichiVisorFactory.createHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
+        console.log("ICHIVisor Factory " + ichiVisorFactory.address);
+        console.log("ICHIVisor factory owner " + await ichiVisorFactory.owner());
+        console.log("wallet used to create new ICHIVisors " + wallet.address);
+        await ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
+        console.log("3");
         const hypervisorAddress = await ichiVisorFactory.getHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
         hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
 
@@ -503,7 +508,7 @@ describe('ETHUSDT Hypervisor', () => {
 
     beforeEach('deploy contracts', async () => {
         ({ token0, token1, token2, factory, router, nft, ichiVisorFactory } = await loadFixture(ichiVisorTestFixture))
-        await ichiVisorFactory.createHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
+        await ichiVisorFactory.createIchiVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
         const hypervisorAddress = await ichiVisorFactory.getHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
         hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
 

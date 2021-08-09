@@ -4,6 +4,7 @@ pragma solidity 0.7.6;
 
 import "../../interfaces/IHypervisor.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import '@openzeppelin/contracts/access/Ownable.sol';
 
 contract Admin {
     /* user events */
@@ -64,7 +65,7 @@ contract Admin {
     function fullfillHVOwnertransfer(address _hypervisor, address newOwner) external onlyAdmin {
         OwnershipData storage data = hypervisorOwner[_hypervisor];
         require(data.newOwner == newOwner && data.lastUpdatedTime != 0 && data.lastUpdatedTime < block.timestamp);
-        IHypervisor(_hypervisor).transferOwnership(newOwner);
+        Ownable(_hypervisor).transferOwnership(newOwner);
         delete hypervisorOwner[_hypervisor];
         emit OwnerTransferFullfilled(_hypervisor, newOwner, admin, block.timestamp);
     }

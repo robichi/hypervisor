@@ -6,6 +6,7 @@ import {
     UniswapV3Factory,
     SwapRouter,
     NonfungiblePositionManager,
+    HypervisorFactory,
     ICHIVisorFactory,
     MockUniswapV3PoolDeployer
 } from "../../typechain";
@@ -58,8 +59,16 @@ interface ICHIVisorFactoryFixture {
 }
 
 async function ichiVisorFactoryFixture(factory: UniswapV3Factory): Promise<ICHIVisorFactoryFixture> {
+    const hypervisorFactoryFactory = await ethers.getContractFactory('HypervisorFactory')
+    const hypervisorFactory = (await hypervisorFactoryFactory.deploy(factory.address)) as HypervisorFactory
+
     const ichiVisorFactoryFactory = await ethers.getContractFactory('ICHIVisorFactory')
-    const ichiVisorFactory = (await ichiVisorFactoryFactory.deploy(factory.address)) as ICHIVisorFactory
+    const ichiVisorFactory = (await ichiVisorFactoryFactory.deploy(factory.address, hypervisorFactory.address)) as ICHIVisorFactory
+
+    console.log("initial HV Factory owner " + await hypervisorFactory.owner());
+    await hypervisorFactory.init(ichiVisorFactory.address);
+    console.log("HV Factory owner after init" + await hypervisorFactory.owner());
+    
     return { ichiVisorFactory }
 }
 
