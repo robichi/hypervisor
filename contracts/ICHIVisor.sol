@@ -12,14 +12,20 @@ contract ICHIVisor is IICHIVisor, ERC20, Ownable {
 
     address constant NULL_ADDRESS = address(0);
     address public override immutable uniswapV3Factory;
-    address public override immutable hypervisor;
+    address public override immutable hypervisorFactory;
     address public override immutable pool;
     address public override immutable token0;
     bool public override immutable allowToken0;
     address public override immutable token1;
     bool public override immutable allowToken1;
     uint24 public override immutable fee;
+    address public override hypervisor;
     
+    modifier initialized {
+        require(hypervisor != NULL_ADDRESS, 'ICHIVisor.initialied: not initialized');
+        _;
+    }
+
     constructor(
         address _hypervisorFactory,
         address _uniswapV3Factory, 
@@ -51,44 +57,29 @@ contract ICHIVisor is IICHIVisor, ERC20, Ownable {
             _pool = IUniswapV3Factory(_uniswapV3Factory).createPool(_token0, _token1, _fee);
         }
 
-        // deploy the hypervisor
-        /*
-        address _hypervisor = address(
-            new Hypervisor{
-                salt: keccak256(
-                    abi.encodePacked(
-                        _token0, 
-                        _token1, 
-                        _fee, 
-                        tickSpacing
-                    )
-                )
-            }
-            (
-                _pool, 
-                address(this)
-            )
-        );
-        */
-        address _hypervisor = IHypervisorFactory(_hypervisorFactory).createHypervisor(_token0, _token1, _fee);
-        
         // set immutables
         uniswapV3Factory = _uniswapV3Factory;
-        hypervisor = _hypervisor;
+        hypervisorFactory = _hypervisorFactory;
         pool = _pool;
         token0 = _token0;
         allowToken0 = _allowToken0;
         token1 = _token1;
         allowToken1 = _allowToken1;
 
-        emit HypervisorCreated(_uniswapV3Factory, _hypervisor, _pool, _token0, _allowToken0, _token1, _allowToken1, _fee);
+        emit HypervisorCreated(_uniswapV3Factory, _hypervisorFactory, _pool, _token0, _allowToken0, _token1, _allowToken1, _fee);
+    }
+
+    function init() external override onlyOwner returns(address _hypervisor) {
+        require(hypervisor == NULL_ADDRESS, 'ICHIVisor.init: already initialized');
+        _hypervisor = IHypervisorFactory(hypervisorFactory).createHypervisor(token0, token1, fee);
+        emit Initialized(_hypervisor);
     }
 
     function deposit(
         uint256 deposit0,
         uint256 deposit1,
         address to
-    ) external override returns (uint256 shares) {
+    ) external override initialized returns (uint256 shares) {
         require(allowToken0 || deposit0 == 0, 'ICHIVisor.deposit: token0 prohibited by ICHIVisor policy');
         require(allowToken1 || deposit1 == 0, 'ICHIVisor.deposit: token1 prohibited by ICHIVisor policy');
         ERC20(token0).transferFrom(msg.sender, address(this), deposit0);
@@ -101,7 +92,7 @@ contract ICHIVisor is IICHIVisor, ERC20, Ownable {
         uint256 shares,
         address to,
         address from
-    ) external override returns (uint256 amount0, uint256 amount1) {
+    ) external override initialized returns (uint256 amount0, uint256 amount1) {
         (amount0, amount1) = IHypervisor(hypervisor).withdraw(shares, to, from);
         _burn(from, shares);
         ERC20(token0).transfer(msg.sender, amount0);
@@ -116,7 +107,7 @@ contract ICHIVisor is IICHIVisor, ERC20, Ownable {
         int24 _limitUpper,
         address feeRecipient,
         int256 swapQuantity
-    ) external override onlyOwner {
+    ) external override initialized onlyOwner {
 
         IHypervisor(hypervisor).rebalance(
             _baseLower,
@@ -139,7 +130,7 @@ contract ICHIVisor is IICHIVisor, ERC20, Ownable {
 
     // @param _deposit0Max The maximum amount of token0 allowed in a deposit
     // @param _deposit1Max The maximum amount of token1 allowed in a deposit
-    function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external override onlyOwner {
+    function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external override initialized onlyOwner {
         IHypervisor(hypervisor).setDepositMax(_deposit0Max, _deposit1Max);
         emit SetDepositMax(_deposit0Max, _deposit1Max);
     }

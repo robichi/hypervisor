@@ -4,6 +4,7 @@ pragma solidity 0.7.6;
 interface IICHIVisor {
 
     function uniswapV3Factory() external view returns(address);
+    function hypervisorFactory() external view returns(address);
     function hypervisor() external view returns(address); 
     function pool() external view returns(address);
     function token0() external view returns(address);
@@ -11,6 +12,8 @@ interface IICHIVisor {
     function token1() external view returns(address);
     function allowToken1() external view returns(bool);
     function fee() external view returns(uint24);
+
+    function init() external returns(address _hypervisor);
     
     function deposit(
         uint256 deposit0,
@@ -40,13 +43,15 @@ interface IICHIVisor {
 
     event HypervisorCreated(
         address uniswapV3Factory, 
-        address hypervisor, 
+        address hypervisorFactory, 
         address pool, 
         address token0, 
         bool allowToken0, 
         address token1, 
         bool allowToken1, 
         uint24 fee);
+
+    event Initialized(address _hypervisor);
 
     event Deposit(
         address indexed sender,

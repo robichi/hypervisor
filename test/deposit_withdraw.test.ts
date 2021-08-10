@@ -59,6 +59,7 @@ describe('Hypervisor', () => {
         console.log("wallet used to create new ICHIVisors " + wallet.address);
         await ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
         console.log("3");
+        /*
         const hypervisorAddress = await ichiVisorFactory.getHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
         hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
 
@@ -88,6 +89,7 @@ describe('Hypervisor', () => {
             amount1Min: 0,
             deadline: 2000000000,
         })
+        */
     })
 
     it('multiple deposits and total withdrawal', async () => {
@@ -509,6 +511,7 @@ describe('ETHUSDT Hypervisor', () => {
     beforeEach('deploy contracts', async () => {
         ({ token0, token1, token2, factory, router, nft, ichiVisorFactory } = await loadFixture(ichiVisorTestFixture))
         await ichiVisorFactory.createIchiVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
+        /*
         const hypervisorAddress = await ichiVisorFactory.getHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
         hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
 
@@ -540,6 +543,7 @@ describe('ETHUSDT Hypervisor', () => {
             amount1Min: 0,
             deadline: 2000000000,
         })
+        */
     })
 
     it('handles deposit / withdrawal from pools of different balances', async () => {
