@@ -21,6 +21,7 @@ import {
     UniswapV3Factory,
     IUniswapV3Pool,
     ICHIVisorFactory,
+    ICHIVisor,
     Hypervisor,
     NonfungiblePositionManager,
     TestERC20,
@@ -45,7 +46,7 @@ describe('Hypervisor', () => {
     let token2: TestERC20
     let uniswapPool: IUniswapV3Pool
     let ichiVisorFactory: ICHIVisorFactory
-    let hypervisor: Hypervisor
+    let hypervisor: ICHIVisor
 
     let loadFixture: ReturnType<typeof createFixtureLoader>
     before('create fixture loader', async () => {
@@ -58,15 +59,19 @@ describe('Hypervisor', () => {
         console.log("ICHIVisor factory owner " + await ichiVisorFactory.owner());
         console.log("wallet used to create new ICHIVisors " + wallet.address);
         await ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
-        console.log("3");
-        /*
-        const hypervisorAddress = await ichiVisorFactory.getHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
-        hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
+        
+        // const hypervisorAddress = await ichiVisorFactory.getHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
+        const ichiVisorAddress = await ichiVisorFactory.ichiVisorAtIndex(0);
+        hypervisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
+        console.log(hypervisor.address);
 
         const poolAddress = await factory.getPool(token0.address, token1.address, FeeAmount.MEDIUM)
         uniswapPool = (await ethers.getContractAt('IUniswapV3Pool', poolAddress)) as IUniswapV3Pool
         await uniswapPool.initialize(encodePriceSqrt('1', '1'))
-        await hypervisor.setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000'))
+        console.log('before setDepositMax');
+        console.log("ICHIVisor owner " + await hypervisor.owner());
+        await hypervisor.connect(wallet).setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000'))
+        console.log('after setDepositMax');
 
         // adding extra liquidity into pool to make sure there's always
         // someone to swap with
@@ -89,7 +94,7 @@ describe('Hypervisor', () => {
             amount1Min: 0,
             deadline: 2000000000,
         })
-        */
+        
     })
 
     it('multiple deposits and total withdrawal', async () => {

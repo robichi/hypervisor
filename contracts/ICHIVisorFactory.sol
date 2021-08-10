@@ -81,7 +81,7 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
         ichiVisor[newIchiVisor] = newVisor;
 
         // initialize the ichiVisor
-        hypervisor = ICHIVisor(newIchiVisor).init();
+        hypervisor = ICHIVisor(newIchiVisor).init(msg.sender);
         IHypervisorFactory(hypervisorFactory).subordinateHypervisor(hypervisor, newIchiVisor);
 
         emit IchiVisorCreated(msg.sender, newIchiVisor, token0, token1, fee, visorSet.count());

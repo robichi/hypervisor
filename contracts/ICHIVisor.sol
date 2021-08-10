@@ -11,6 +11,7 @@ import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 contract ICHIVisor is IICHIVisor, ERC20, Ownable {
 
     address constant NULL_ADDRESS = address(0);
+    uint256 private constant INFINITE = ~uint256(0);
     address public override immutable uniswapV3Factory;
     address public override immutable hypervisorFactory;
     address public override immutable pool;
@@ -69,9 +70,13 @@ contract ICHIVisor is IICHIVisor, ERC20, Ownable {
         emit HypervisorCreated(_uniswapV3Factory, _hypervisorFactory, _pool, _token0, _allowToken0, _token1, _allowToken1, _fee);
     }
 
-    function init() external override onlyOwner returns(address _hypervisor) {
+    function init(address deployer) external override onlyOwner returns(address _hypervisor) {
         require(hypervisor == NULL_ADDRESS, 'ICHIVisor.init: already initialized');
         _hypervisor = IHypervisorFactory(hypervisorFactory).createHypervisor(token0, token1, fee);
+        hypervisor = _hypervisor;
+        transferOwnership(deployer);
+        ERC20(token0).approve(hypervisor, INFINITE);
+        ERC20(token1).approve(hypervisor, INFINITE);
         emit Initialized(_hypervisor);
     }
 

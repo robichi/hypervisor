@@ -13,7 +13,7 @@ interface IICHIVisor {
     function allowToken1() external view returns(bool);
     function fee() external view returns(uint24);
 
-    function init() external returns(address _hypervisor);
+    function init(address deployer) external returns(address _hypervisor);
     
     function deposit(
         uint256 deposit0,
