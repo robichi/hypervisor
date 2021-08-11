@@ -78,6 +78,7 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
         visorSet.insert(newIchiVisor, 'ICHIVisorFactory.createIchiVisor:: (500) hypervisor address collision');
         tradeable[token0].visorSet.insert(newIchiVisor, 'ICHIVisorFactory.createIchiVisor:: (500) token0 collision');
         tradeable[token1].visorSet.insert(newIchiVisor, 'ICHIVisorFactory.createIchiVisor:: (500) token1 collision');
+        require(to != address(0) && to != address(this), "to");
         ichiVisor[newIchiVisor] = newVisor;
 
         // initialize the ichiVisor
