@@ -89,7 +89,8 @@ contract ICHIVisor is IICHIVisor, ERC20, Ownable {
         require(allowToken1 || deposit1 == 0, 'ICHIVisor.deposit: token1 prohibited by ICHIVisor policy');
         ERC20(token0).transferFrom(msg.sender, address(this), deposit0);
         ERC20(token1).transferFrom(msg.sender, address(this), deposit1);
-        shares = IHypervisor(hypervisor).deposit(deposit0, deposit1, to);
+        shares = IHypervisor(hypervisor).deposit(deposit0, deposit1, address(this));
+        _mint(to, shares);
         emit Deposit(msg.sender, to, shares, deposit0, deposit1);
     }
 
@@ -98,10 +99,10 @@ contract ICHIVisor is IICHIVisor, ERC20, Ownable {
         address to,
         address from
     ) external override initialized returns (uint256 amount0, uint256 amount1) {
-        (amount0, amount1) = IHypervisor(hypervisor).withdraw(shares, to, from);
+        (amount0, amount1) = IHypervisor(hypervisor).withdraw(shares, address(this), address(this));
         _burn(from, shares);
-        ERC20(token0).transfer(msg.sender, amount0);
-        ERC20(token1).transfer(msg.sender, amount1);
+        ERC20(token0).transfer(to, amount0);
+        ERC20(token1).transfer(to, amount1);
         emit Withdraw(from, to, shares, amount0, amount1);
     }
     

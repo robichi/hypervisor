@@ -65,9 +65,9 @@ async function ichiVisorFactoryFixture(factory: UniswapV3Factory): Promise<ICHIV
     const ichiVisorFactoryFactory = await ethers.getContractFactory('ICHIVisorFactory')
     const ichiVisorFactory = (await ichiVisorFactoryFactory.deploy(factory.address, hypervisorFactory.address)) as ICHIVisorFactory
 
-    console.log("initial HV Factory owner " + await hypervisorFactory.owner());
+    // console.log("initial HV Factory owner " + await hypervisorFactory.owner());
     await hypervisorFactory.init(ichiVisorFactory.address);
-    console.log("HV Factory owner after init" + await hypervisorFactory.owner());
+    // console.log("HV Factory owner after init" + await hypervisorFactory.owner());
     
     return { ichiVisorFactory }
 }
