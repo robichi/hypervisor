@@ -17,8 +17,9 @@ contract HypervisorFactory is IHypervisorFactory, Ownable {
     event HypervisorCreated(address token0, address token1, uint24 fee, address hypervisor, uint256);
     event HypervisorFactoryInitialized(address ichiVisorFactor);
 
-    modifier onlyTrusted {
-        require(IICHIVisorFactory(owner()).isIchiVisor(msg.sender), "HypervisorFactory.onlyTrusted: caller wasn't created by the ichiVisorFactory");
+    modifier onlyTrusted (address token0, address token1, uint fee) {
+        (/* bytes32 key */, bool exists) = IICHIVisorFactory(owner()).visorKey(token0, token1, fee);
+        require(exists, "HypervisorFactory.onlyTrusted: caller wasn't created by the ichiVisorFactory");
         _;
     }
 
@@ -40,7 +41,7 @@ contract HypervisorFactory is IHypervisorFactory, Ownable {
         address tokenA,
         address tokenB,
         uint24 fee
-    ) external override onlyTrusted returns (address hypervisor) {
+    ) external override onlyTrusted(tokenA, tokenB, fee) returns (address hypervisor) {
         require(initialized, 'HypervisorFactory.createHypervisor: not initialized');
         require(tokenA != tokenB, 'HypervisorFactory.createHypervisor: Identical token addresses'); // TODO: using PoolAddress library (uniswap-v3-periphery)
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);

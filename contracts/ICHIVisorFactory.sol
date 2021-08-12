@@ -5,31 +5,35 @@ import './ICHIVisor.sol';
 import "../interfaces/IICHIVisorFactory.sol";
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import './lib/Bytes32Set.sol';
 import './lib/AddressSet.sol';
 
 contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
 
     using AddressSet for AddressSet.Set;
+    using Bytes32Set for Bytes32Set.Set;
 
     address constant NULL_ADDRESS = address(0);
 
     address public override immutable uniswapV3Factory;
     address public override immutable hypervisorFactory;
     
-    struct Tradeable {
-        AddressSet.Set visorSet;
+    struct Token {
+        Bytes32Set.Set visorSet;
     }
-    mapping(address => Tradeable) tradeable;
+    mapping(address => Token) tokens;
+    AddressSet.Set tokenSet;
 
     struct IchiVisor {
+        address hypervisor;
         address token0;
         bool allowToken0;
         address token1;
         bool allowToken1;
         uint fee;
     }
-    AddressSet.Set visorSet;
-    mapping(address => IchiVisor) public override ichiVisor;
+    Bytes32Set.Set visorSet;
+    mapping(bytes32 => IchiVisor) public override ichiVisor;
 
     constructor(address _uniswapV3Factory, address _hypervisorFactory) {
         uniswapV3Factory = _uniswapV3Factory;
@@ -65,47 +69,66 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
             fee
         ));
 
+        (bytes32 visorId, /* bool exists */ ) = visorKey(token0, token1, fee);
+
+        // should not be possible for these inserts to fail
+        visorSet.insert(visorId, 'ICHIVisorFactory.createIchiVisor:: (500) hypervisor address collision');
+        tokens[token0].visorSet.insert(visorId, 'ICHIVisorFactory.createIchiVisor:: (500) token0 collision');
+        tokens[token1].visorSet.insert(visorId, 'ICHIVisorFactory.createIchiVisor:: (500) token1 collision');
+
+        // initialize the ichiVisor
+        hypervisor = ICHIVisor(newIchiVisor).init(msg.sender);
+        
         // update the discoverable state
         IchiVisor memory newVisor = IchiVisor({
+            hypervisor: hypervisor,
             token0: token0,
             allowToken0: allowToken0,
             token1: token1,
             allowToken1: allowToken1,
             fee: fee
         });
-
-        // should not be possible for these inserts to fail
-        visorSet.insert(newIchiVisor, 'ICHIVisorFactory.createIchiVisor:: (500) hypervisor address collision');
-        tradeable[token0].visorSet.insert(newIchiVisor, 'ICHIVisorFactory.createIchiVisor:: (500) token0 collision');
-        tradeable[token1].visorSet.insert(newIchiVisor, 'ICHIVisorFactory.createIchiVisor:: (500) token1 collision');
-        require(to != address(0) && to != address(this), "to");
-        ichiVisor[newIchiVisor] = newVisor;
-
-        // initialize the ichiVisor
-        hypervisor = ICHIVisor(newIchiVisor).init(msg.sender);
+        ichiVisor[visorId] = newVisor;
         IHypervisorFactory(hypervisorFactory).subordinateHypervisor(hypervisor, newIchiVisor);
 
-        emit IchiVisorCreated(msg.sender, newIchiVisor, token0, token1, fee, visorSet.count());
+        emit IchiVisorCreated(msg.sender, newIchiVisor, visorId, token0, token1, fee, visorSet.count());
+    }
+
+    function visorKey(address tokenA, address tokenB, uint fee) public override pure returns(bytes32 key, bool exists) {
+        (address token0, address token1) = _orderedPair(tokenA, tokenB);
+        (key, exists) = visorKey(token0, token1, fee);
+    }
+
+    function tokenCount() external override view returns(uint) {
+        return tokenSet.count();
+    }
+
+    function tokenAtIndex(uint index) external override view returns(address) {
+        return tokenSet.keyAtIndex(index);
+    }
+
+    function isToken(address _token) external override view returns(bool) {
+        return tokenSet.exists(_token);
     }
 
     function ichiVisorsCount() external override view returns (uint256) {
         return visorSet.count();
     }
 
-    function ichiVisorAtIndex(uint index) external override view returns(address) {
+    function ichiVisorAtIndex(uint index) external override view returns(bytes32) {
         return visorSet.keyAtIndex(index);
     }
 
-    function isIchiVisor(address checkIchiVisor) external override view returns(bool) {
+    function isIchiVisor(bytes32 checkIchiVisor) external override view returns(bool) {
         return visorSet.exists(checkIchiVisor);
     }
 
     function tokenIchiVisorCount(address token) external override view returns(uint) {
-        return tradeable[token].visorSet.count();
+        return tokens[token].visorSet.count();
     }
 
-    function tokenIchiVisorAtIndex(address token, uint index) external override view returns(address) {
-        return tradeable[token].visorSet.keyAtIndex(index);
+    function tokenIchiVisorAtIndex(address token, uint index) external override view returns(bytes32) {
+        return tokens[token].visorSet.keyAtIndex(index);
     }
 
     function _orderedPair(address a, address b) private pure returns(address, address) {
