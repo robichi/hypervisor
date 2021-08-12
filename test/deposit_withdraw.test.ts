@@ -61,18 +61,19 @@ describe('Hypervisor', () => {
         // console.log("wallet used to create new ICHIVisors " + wallet.address);
         await ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
         
-        // const hypervisorAddress = await ichiVisorFactory.getHypervisor(token0.address, token1.address, FeeAmount.MEDIUM)
-        const ichiVisorAddress = await ichiVisorFactory.ichiVisorAtIndex(0);
+        const res = await ichiVisorFactory.visorKey(token0.address, token1.address, FeeAmount.MEDIUM)
+        const key = res[0];
+        const ichiVisorAddress = (await ichiVisorFactory.ichiVisor(key)).ichivisor;
         ichiVisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
         // console.log("ICHIVisor address " + ichiVisor.address);
 
         const poolAddress = await factory.getPool(token0.address, token1.address, FeeAmount.MEDIUM)
         uniswapPool = (await ethers.getContractAt('IUniswapV3Pool', poolAddress)) as IUniswapV3Pool
         await uniswapPool.initialize(encodePriceSqrt('1', '1'))
-        // console.log("ICHIVisor owner " + await hypervisor.owner());
         await ichiVisor.connect(wallet).setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000'))
         const hypervisorAddress = await ichiVisor.hypervisor();
         hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
+        // console.log("ICHIVisor owner " + await hypervisor.owner());
 
         // adding extra liquidity into pool to make sure there's always
         // someone to swap with
@@ -536,7 +537,9 @@ describe('ETHUSDT Hypervisor', () => {
         ({ token0, token1, token2, factory, router, nft, ichiVisorFactory } = await loadFixture(ichiVisorTestFixture))
         await ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
 
-        const ichiVisorAddress = await ichiVisorFactory.ichiVisorAtIndex(0);
+        const res = await ichiVisorFactory.visorKey(token0.address, token1.address, FeeAmount.MEDIUM)
+        const key = res[0];
+        const ichiVisorAddress = (await ichiVisorFactory.ichiVisor(key)).ichivisor;
         ichiVisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
  
         await ichiVisor.connect(wallet).setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000'))

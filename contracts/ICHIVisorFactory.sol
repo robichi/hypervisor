@@ -25,6 +25,7 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
     AddressSet.Set tokenSet;
 
     struct IchiVisor {
+        address ichivisor;
         address hypervisor;
         address token0;
         bool allowToken0;
@@ -81,6 +82,7 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
         
         // update the discoverable state
         IchiVisor memory newVisor = IchiVisor({
+            ichivisor: newIchiVisor,
             hypervisor: hypervisor,
             token0: token0,
             allowToken0: allowToken0,
@@ -94,9 +96,10 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
         emit IchiVisorCreated(msg.sender, newIchiVisor, visorId, token0, token1, fee, visorSet.count());
     }
 
-    function visorKey(address tokenA, address tokenB, uint fee) public override pure returns(bytes32 key, bool exists) {
+    function visorKey(address tokenA, address tokenB, uint fee) public override view returns(bytes32 key, bool exists) {
         (address token0, address token1) = _orderedPair(tokenA, tokenB);
-        (key, exists) = visorKey(token0, token1, fee);
+        key = keccak256(abi.encodePacked(token0, token1, fee));
+        exists = visorSet.exists(key);
     }
 
     function tokenCount() external override view returns(uint) {

@@ -29,6 +29,7 @@ interface IICHIVisorFactory {
     function hypervisorFactory() external view returns(address);
 
     function ichiVisor(bytes32) external view returns(
+        address ichivisor,
         address hypervisor,
         address token0,
         bool allowToken0,
@@ -37,7 +38,7 @@ interface IICHIVisorFactory {
         uint fee);        
 
 
-    function visorKey(address token0, address token1, uint fee) external pure returns(bytes32, bool);
+    function visorKey(address token0, address token1, uint fee) external view returns(bytes32, bool);
 
     function tokenCount() external view returns(uint);
 

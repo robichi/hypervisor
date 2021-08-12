@@ -11,7 +11,13 @@ const archive_node = process.env.ETHEREUM_ARCHIVE_URL || ''
 export default {
   networks: {
       hardhat: {
-          allowUnlimitedContractSize: false,
+        forking: {
+         url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_API_KEY}`
+        },
+        live: false,
+        saveDeployments: true,
+        allowUnlimitedContractSize: false,
+        tags: ["test", "local"]
       },
       goerli: {
         url: 'https://goerli.infura.io/v3/' + process.env.INFURA_ID,
