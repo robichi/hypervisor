@@ -45,6 +45,7 @@ contract ICHIVisor is IICHIVisor, ERC20, Ownable {
         (address _token0, address _token1) = _orderedPair(_tokenA, _tokenB);
         require(_tokenA != _tokenB, 'ICHIVisor.constructor: Identical token addresses');
         require(_token0 != NULL_ADDRESS, 'ICHIVisor.constructor: token undefined');
+        require(_allowTokenA || _allowTokenB, 'ICHIVisor.constructor: At least one token must be allowed');
 
         // configure the policy
         bool _allowToken0 = (_token0 == _tokenA) ? _allowTokenA : _allowTokenB;

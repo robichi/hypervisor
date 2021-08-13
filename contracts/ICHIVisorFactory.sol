@@ -51,7 +51,8 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
     ) external override onlyOwner returns (address newIchiVisor, address hypervisor) {
         (address token0, address token1) = _orderedPair(tokenA, tokenB);
         require(token0 != token1, 'ICHIVisorFactory.createIchiVisor: Identical token addresses');
-        require(token0 != NULL_ADDRESS, 'ICHIVisorFactory.createIchiVisor:: token undefined');
+        require(token0 != NULL_ADDRESS, 'ICHIVisorFactory.createIchiVisor: token undefined');
+        require(allowTokenA || allowTokenB, 'ICHIVisorFactory.createIchiVisor: At least one token must be allowed');
 
         // configure policy
         bool allowToken0 = (token0 == tokenA) ? allowTokenA : allowTokenB;

@@ -34,7 +34,7 @@ const largeTokenAmount = ethers.utils.parseEther('1000000')
 const veryLargeTokenAmount = ethers.utils.parseEther('10000000000')
 const giantTokenAmount = ethers.utils.parseEther('1000000000000')
 
-describe('Hypervisor', () => {
+describe('ICHIVisor General Functionality', () => {
     const [wallet, alice, bob, carol, other,
            user0, user1, user2, user3, user4] = waffle.provider.getWallets()
 
@@ -514,7 +514,7 @@ describe('Hypervisor', () => {
     })
 })
 
-describe('ETHUSDT Hypervisor', () => {
+describe('ETHUSDT ICHIVisor Test', () => {
     const [wallet, other, user0, user1, user2, user3, user4, user5] = waffle.provider.getWallets()
 
     let factory: UniswapV3Factory
