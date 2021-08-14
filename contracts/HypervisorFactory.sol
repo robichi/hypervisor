@@ -11,7 +11,7 @@ contract HypervisorFactory is IHypervisorFactory, Ownable {
     IUniswapV3Factory public immutable uniswapV3Factory;
 
     bool public initialized;
-    mapping(address => mapping(address => mapping(uint24 => address))) public getHypervisor; // token0, token1, fee -> hypervisor address
+    mapping(address => mapping(address => mapping(uint24 => mapping(bool => mapping(bool => address))))) public getHypervisor; // token0, token1, fee -> hypervisor address
     address[] public allHypervisors;
 
     event HypervisorCreated(address token0, address token1, uint24 fee, address hypervisor, uint256);
@@ -39,14 +39,17 @@ contract HypervisorFactory is IHypervisorFactory, Ownable {
 
     function createHypervisor(
         address tokenA,
+        bool allowTokenA,
         address tokenB,
+        bool allowTokenB,
         uint24 fee
     ) external override onlyTrusted(tokenA, tokenB, fee) returns (address hypervisor) {
         require(initialized, 'HypervisorFactory.createHypervisor: not initialized');
-        require(tokenA != tokenB, 'HypervisorFactory.createHypervisor: Identical token addresses'); // TODO: using PoolAddress library (uniswap-v3-periphery)
+        require(tokenA != tokenB, 'HypervisorFactory.createHypervisor: Identical token addresses');
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        (bool allowToken0, bool allowToken1) = tokenA < tokenB ? (allowTokenA, allowTokenB) : (allowTokenB, allowTokenA);
         require(token0 != address(0), 'HypervisorFactory.createHypervisor: zero address');
-        require(getHypervisor[token0][token1][fee] == address(0), 'HypervisorFactory.createHypervisor: hypervisor exists');
+        require(getHypervisor[token0][token1][fee][allowToken0][allowToken1] == address(0), 'HypervisorFactory.createHypervisor: hypervisor exists');
         int24 tickSpacing = uniswapV3Factory.feeAmountTickSpacing(fee);
         require(tickSpacing != 0, 'HypervisorFactory.createHypervisor: fee incorrect');
         address pool = uniswapV3Factory.getPool(token0, token1, fee);
@@ -54,11 +57,11 @@ contract HypervisorFactory is IHypervisorFactory, Ownable {
             pool = uniswapV3Factory.createPool(token0, token1, fee);
         }
         hypervisor = address(
-            new Hypervisor{salt: keccak256(abi.encodePacked(token0, token1, fee, tickSpacing))}(pool, address(this))
+            new Hypervisor{salt: keccak256(abi.encodePacked(token0, allowToken0, token1, allowToken1, fee, tickSpacing))}(pool, address(this))
         );
 
-        getHypervisor[token0][token1][fee] = hypervisor;
-        getHypervisor[token1][token0][fee] = hypervisor; // populate mapping in the reverse direction
+        getHypervisor[token0][token1][fee][allowToken0][allowToken1] = hypervisor;
+        getHypervisor[token1][token0][fee][allowToken1][allowToken0] = hypervisor; // populate mapping in the reverse direction
         allHypervisors.push(hypervisor);
         emit HypervisorCreated(token0, token1, fee, hypervisor, allHypervisors.length);
     }

@@ -6,7 +6,9 @@ interface IHypervisorFactory {
 
     function createHypervisor(
             address tokenA,
+            bool allowTokenA,
             address tokenB,
+            bool allowTokenB,
             uint24 fee
         ) external returns (address hypervisor);
 
