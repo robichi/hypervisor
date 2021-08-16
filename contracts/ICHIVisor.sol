@@ -2,44 +2,43 @@
 
 pragma solidity 0.7.6;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/math/SignedSafeMath.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import {SafeMath} from "@openzeppelin/contracts/math/SafeMath.sol";
+import {SignedSafeMath} from "@openzeppelin/contracts/math/SignedSafeMath.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
-import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-import "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
+import {IUniswapV3MintCallback} from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
+import {IUniswapV3SwapCallback} from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
+import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {TickMath} from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+import {FullMath} from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
+import {LiquidityAmounts} from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 
-import "../interfaces/IICHIVisor.sol";
+import {IICHIVisor} from "../interfaces/IICHIVisor.sol";
 
 // @title ICHIVisor
 // @notice A Uniswap V2-like interface with fungible liquidity to Uniswap V3
 // which allows for arbitrary liquidity provision: one-sided, lop-sided, and
 // balanced.
-contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback, ERC20 {
+contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback, ERC20, Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
     using SignedSafeMath for int256;
 
-    IUniswapV3Pool public pool;
-    IERC20 public immutable token0;
-    IERC20 public immutable token1;
-    bool public immutable allowToken0;
-    bool public immutable allowToken1;
-    uint24 public immutable fee;
-    int24 public tickSpacing;
+    address public override pool;
+    address public override immutable token0;
+    address public override immutable token1;
+    bool public override immutable allowToken0;
+    bool public override immutable allowToken1;
+    uint24 public override immutable fee;
+    int24 public override tickSpacing;
 
-    address public owner;
-
-    int24 public baseLower;
-    int24 public baseUpper;
-    int24 public limitLower;
-    int24 public limitUpper;
+    int24 public override baseLower;
+    int24 public override baseUpper;
+    int24 public override limitLower;
+    int24 public override limitUpper;
 
     // The following three variables serve the very important purpose of
     // limiting inventory risk and the arbitrage opportunities made possible by
@@ -57,9 +56,9 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
     // capital they would be overwhelmed by the gas fees necessary to call
     // deposit & withdrawal many times.
 
-    uint256 public deposit0Max;
-    uint256 public deposit1Max;
-    uint256 public maxTotalSupply;
+    uint256 public override deposit0Max;
+    uint256 public override deposit1Max;
+    uint256 public override maxTotalSupply;
 
     uint256 constant public PRECISION = 1e36;
 
@@ -73,15 +72,15 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
     ) 
         ERC20("xICHI Liquidity", "xICHI")
     {
-        pool = IUniswapV3Pool(_pool);
-        token0 = IERC20(pool.token0());
-        token1 = IERC20(pool.token1());
-        fee = pool.fee();
+        pool = _pool;
+        token0 = IUniswapV3Pool(pool).token0();
+        token1 = IUniswapV3Pool(pool).token1();
+        fee = IUniswapV3Pool(pool).fee();
         allowToken0 = _allowToken0;
         allowToken1 = _allowToken1;
-        tickSpacing = pool.tickSpacing();
+        tickSpacing = IUniswapV3Pool(pool).tickSpacing();
 
-        owner = _owner;
+        transferOwnership(_owner);
 
         maxTotalSupply = 0; // no cap
         deposit0Max = uint256(-1); // max uint256
@@ -113,11 +112,11 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         // update fees for inclusion in total pool amounts
         (uint128 baseLiquidity,,) = _position(baseLower, baseUpper);
         if (baseLiquidity > 0) {
-            pool.burn(baseLower, baseUpper, 0);
+            IUniswapV3Pool(pool).burn(baseLower, baseUpper, 0);
         }
         (uint128 limitLiquidity,,)  = _position(limitLower, limitUpper);
         if (limitLiquidity > 0) {
-            pool.burn(limitLower, limitUpper, 0);
+            IUniswapV3Pool(pool).burn(limitLower, limitUpper, 0);
         }
 
         uint160 sqrtPrice = TickMath.getSqrtRatioAtTick(currentTick());
@@ -129,10 +128,10 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         shares = deposit1.add(deposit0PricedInToken1);
 
         if (deposit0 > 0) {
-          token0.safeTransferFrom(msg.sender, address(this), deposit0);
+          IERC20(token0).safeTransferFrom(msg.sender, address(this), deposit0);
         }
         if (deposit1 > 0) {
-          token1.safeTransferFrom(msg.sender, address(this), deposit1);
+          IERC20(token1).safeTransferFrom(msg.sender, address(this), deposit1);
         }
 
         if (totalSupply() != 0) {
@@ -169,10 +168,10 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
 
         // Push tokens proportional to unused balances
         uint256 totalSupply = totalSupply();
-        uint256 unusedAmount0 = token0.balanceOf(address(this)).mul(shares).div(totalSupply);
-        uint256 unusedAmount1 = token1.balanceOf(address(this)).mul(shares).div(totalSupply);
-        if (unusedAmount0 > 0) token0.safeTransfer(to, unusedAmount0);
-        if (unusedAmount1 > 0) token1.safeTransfer(to, unusedAmount1);
+        uint256 unusedAmount0 = IERC20(token0).balanceOf(address(this)).mul(shares).div(totalSupply);
+        uint256 unusedAmount1 = IERC20(token1).balanceOf(address(this)).mul(shares).div(totalSupply);
+        if (unusedAmount0 > 0) IERC20(token0).safeTransfer(to, unusedAmount0);
+        if (unusedAmount1 > 0) IERC20(token1).safeTransfer(to, unusedAmount1);
 
         amount0 = base0.add(limit0).add(unusedAmount0);
         amount1 = base1.add(limit1).add(unusedAmount1);
@@ -213,11 +212,11 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         // update fees
         (uint128 baseLiquidity,,) = _position(baseLower, baseUpper);
         if (baseLiquidity > 0) {
-            pool.burn(baseLower, baseUpper, 0);
+            IUniswapV3Pool(pool).burn(baseLower, baseUpper, 0);
         }
         (uint128 limitLiquidity,,)  = _position(limitLower, limitUpper);
         if (limitLiquidity > 0) {
-            pool.burn(limitLower, limitUpper, 0);
+            IUniswapV3Pool(pool).burn(limitLower, limitUpper, 0);
         }
 
         // Withdraw all liquidity and collect all fees from Uniswap pool
@@ -237,8 +236,8 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
 
         emit Rebalance(
             currentTick(),
-            token0.balanceOf(address(this)),
-            token1.balanceOf(address(this)),
+            IERC20(token0).balanceOf(address(this)),
+            IERC20(token1).balanceOf(address(this)),
             // fees0,
             // fees1,
             totalSupply()
@@ -246,7 +245,7 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
 
         // swap tokens if required
         if (swapQuantity != 0) {
-            pool.swap(
+            IUniswapV3Pool(pool).swap(
                 address(this),
                 swapQuantity > 0,
                 swapQuantity > 0 ? swapQuantity : -swapQuantity,
@@ -260,8 +259,8 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         baseLiquidity = _liquidityForAmounts(
             baseLower,
             baseUpper,
-            token0.balanceOf(address(this)),
-            token1.balanceOf(address(this))
+            IERC20(token0).balanceOf(address(this)),
+            IERC20(token1).balanceOf(address(this))
         );
         _mintLiquidity(baseLower, baseUpper, baseLiquidity, address(this));
 
@@ -270,8 +269,8 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         limitLiquidity = _liquidityForAmounts(
             limitLower,
             limitUpper,
-            token0.balanceOf(address(this)),
-            token1.balanceOf(address(this))
+            IERC20(token0).balanceOf(address(this)),
+            IERC20(token1).balanceOf(address(this))
         );
         _mintLiquidity(limitLower, limitUpper, limitLiquidity, address(this));
     }
@@ -283,7 +282,7 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         address payer
     ) internal returns (uint256 amount0, uint256 amount1) {
       if (liquidity > 0) {
-            (amount0, amount1) = pool.mint(
+            (amount0, amount1) = IUniswapV3Pool(pool).mint(
                 address(this),
                 tickLower,
                 tickUpper,
@@ -302,13 +301,13 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
     ) internal returns (uint256 amount0, uint256 amount1) {
         if (liquidity > 0) {
             // Burn liquidity
-            (uint256 owed0, uint256 owed1) = pool.burn(tickLower, tickUpper, liquidity);
+            (uint256 owed0, uint256 owed1) = IUniswapV3Pool(pool).burn(tickLower, tickUpper, liquidity);
 
             // Collect amount owed
             uint128 collect0 = collectAll ? type(uint128).max : _uint128Safe(owed0);
             uint128 collect1 = collectAll ? type(uint128).max : _uint128Safe(owed1);
             if (collect0 > 0 || collect1 > 0) {
-                (amount0, amount1) = pool.collect(to, tickLower, tickUpper, collect0, collect1);
+                (amount0, amount1) = IUniswapV3Pool(pool).collect(to, tickLower, tickUpper, collect0, collect1);
             }
         }
     }
@@ -328,7 +327,7 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         returns (uint128 liquidity, uint128 tokensOwed0, uint128 tokensOwed1)
     {
         bytes32 positionKey = keccak256(abi.encodePacked(address(this), tickLower, tickUpper));
-        (liquidity, , , tokensOwed0, tokensOwed1) = pool.positions(positionKey);
+        (liquidity, , , tokensOwed0, tokensOwed1) = IUniswapV3Pool(pool).positions(positionKey);
     }
 
     function uniswapV3MintCallback(
@@ -340,11 +339,11 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         address payer = abi.decode(data, (address));
 
         if (payer == address(this)) {
-            if (amount0 > 0) token0.safeTransfer(msg.sender, amount0);
-            if (amount1 > 0) token1.safeTransfer(msg.sender, amount1);
+            if (amount0 > 0) IERC20(token0).safeTransfer(msg.sender, amount0);
+            if (amount1 > 0) IERC20(token1).safeTransfer(msg.sender, amount1);
         } else {
-            if (amount0 > 0) token0.safeTransferFrom(payer, msg.sender, amount0);
-            if (amount1 > 0) token1.safeTransferFrom(payer, msg.sender, amount1);
+            if (amount0 > 0) IERC20(token0).safeTransferFrom(payer, msg.sender, amount0);
+            if (amount1 > 0) IERC20(token1).safeTransferFrom(payer, msg.sender, amount1);
         }
     }
 
@@ -358,15 +357,15 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
 
         if (amount0Delta > 0) {
             if (payer == address(this)) {
-                token0.safeTransfer(msg.sender, uint256(amount0Delta));
+                IERC20(token0).safeTransfer(msg.sender, uint256(amount0Delta));
             } else {
-                token0.safeTransferFrom(payer, msg.sender, uint256(amount0Delta));
+                IERC20(token0).safeTransferFrom(payer, msg.sender, uint256(amount0Delta));
             }
         } else if (amount1Delta > 0) {
             if (payer == address(this)) {
-                token1.safeTransfer(msg.sender, uint256(amount1Delta));
+                IERC20(token1).safeTransfer(msg.sender, uint256(amount1Delta));
             } else {
-                token1.safeTransferFrom(payer, msg.sender, uint256(amount1Delta));
+                IERC20(token1).safeTransferFrom(payer, msg.sender, uint256(amount1Delta));
             }
         }
     }
@@ -376,8 +375,8 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
     function getTotalAmounts() public view override returns (uint256 total0, uint256 total1) {
         (, uint256 base0, uint256 base1) = getBasePosition();
         (, uint256 limit0, uint256 limit1) = getLimitPosition();
-        total0 = token0.balanceOf(address(this)).add(base0).add(limit0);
-        total1 = token1.balanceOf(address(this)).add(base1).add(limit1);
+        total0 = IERC20(token0).balanceOf(address(this)).add(base0).add(limit0);
+        total1 = IERC20(token1).balanceOf(address(this)).add(base1).add(limit1);
     }
 
     // @return liquidity Amount of total liquidity in the base position
@@ -427,7 +426,7 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         int24 tickUpper,
         uint128 liquidity
     ) internal view returns (uint256, uint256) {
-        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+        (uint160 sqrtRatioX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
         return
             LiquidityAmounts.getAmountsForLiquidity(
                 sqrtRatioX96,
@@ -443,7 +442,7 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         uint256 amount0,
         uint256 amount1
     ) internal view returns (uint128) {
-        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+        (uint160 sqrtRatioX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
         return
             LiquidityAmounts.getLiquidityForAmounts(
                 sqrtRatioX96,
@@ -456,7 +455,7 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
 
     // @return tick Uniswap pool's current price tick
     function currentTick() public view returns (int24 tick) {
-        (, tick, , , , , ) = pool.slot0();
+        (, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
     }
 
     function _uint128Safe(uint256 x) internal pure returns (uint128) {
@@ -474,10 +473,5 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
     function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external override onlyOwner {
         deposit0Max = _deposit0Max;
         deposit1Max = _deposit1Max;
-    }
-    
-    modifier onlyOwner {
-        require(msg.sender == owner, "ICHIVisor.onlyOwner: only owner");
-        _;
     }
 }

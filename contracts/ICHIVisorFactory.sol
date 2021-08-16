@@ -5,15 +5,15 @@ import {IICHIVisorFactory} from '../interfaces/IICHIVisorFactory.sol';
 import {IUniswapV3Factory} from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
 import {ICHIVisor} from './ICHIVisor.sol';
-import "./lib/AddressSet.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {AddressSet} from "./lib/AddressSet.sol";
+import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
 contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
     using AddressSet for AddressSet.Set;
 
     address constant NULL_ADDRESS = address(0);
 
-    IUniswapV3Factory public immutable uniswapV3Factory;
+    address public override immutable uniswapV3Factory;
 
     struct Token {
         AddressSet.Set visorSet;
@@ -25,7 +25,7 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
     AddressSet.Set visorSet;
 
     constructor(address _uniswapV3Factory) {
-        uniswapV3Factory = IUniswapV3Factory(_uniswapV3Factory);
+        uniswapV3Factory = _uniswapV3Factory;
         emit UniswapV3Factory(msg.sender, _uniswapV3Factory);
     }
 
@@ -46,16 +46,12 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
 
         require(getICHIVisor[token0][token1][fee][allowToken0][allowToken1] == NULL_ADDRESS, 'ICHIVisorFactory.createICHIVisor: ICHIVisor exists');
 
-        int24 tickSpacing = uniswapV3Factory.feeAmountTickSpacing(fee);
+        int24 tickSpacing = IUniswapV3Factory(uniswapV3Factory).feeAmountTickSpacing(fee);
         require(tickSpacing != 0, 'ICHIVisorFactory.createICHIVisor: fee incorrect');
-        address pool = uniswapV3Factory.getPool(tokenA, tokenB, fee);
+        address pool = IUniswapV3Factory(uniswapV3Factory).getPool(tokenA, tokenB, fee);
         if (pool == NULL_ADDRESS) {
-            pool = uniswapV3Factory.createPool(token0, token1, fee);
+            pool = IUniswapV3Factory(uniswapV3Factory).createPool(token0, token1, fee);
         }
-        address poolToken0 = IUniswapV3Pool(pool).token0();
-
-        (token0, token1) = tokenA == poolToken0 ? (tokenA, tokenB) : (tokenB, tokenA);
-        (allowToken0, allowToken1) = tokenA == poolToken0 ? (allowTokenA, allowTokenB) : (allowTokenB, allowTokenA);
 
         ichiVisor = address(
             new ICHIVisor{salt: keccak256(abi.encodePacked(token0, allowToken0, token1, allowToken1, fee, tickSpacing))}(pool, allowToken0, allowToken1, owner())
@@ -79,8 +75,8 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
         return tokenSet.keyAtIndex(index);
     }
 
-    function isToken(address _token) external override view returns(bool) {
-        return tokenSet.exists(_token);
+    function isToken(address token) external override view returns(bool) {
+        return tokenSet.exists(token);
     }
 
     function ichiVisorsCount() external override view returns (uint256) {
@@ -103,4 +99,7 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
         return tokens[token].visorSet.keyAtIndex(index);
     }
 
+    function isTokenIchiVisor(address token, address ichiVisor) external override view returns(bool) {
+        return tokenSet.exists(token) ? tokens[token].visorSet.exists(ichiVisor) : false;
+    }
 }

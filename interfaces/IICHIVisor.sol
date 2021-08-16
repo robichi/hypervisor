@@ -4,6 +4,23 @@ pragma solidity 0.7.6;
 
 interface IICHIVisor{
 
+    function pool() external view returns(address);
+    function token0() external view returns(address);
+    function allowToken0() external view returns(bool);
+    function token1() external view returns(address);
+    function allowToken1() external view returns(bool);
+    function fee() external view returns(uint24);
+
+    function tickSpacing() external view returns(int24);
+    function baseLower() external view returns(int24);
+    function baseUpper() external view returns(int24);
+    function limitLower() external view returns(int24);
+    function limitUpper() external view returns(int24);
+
+    function deposit0Max() external view returns(uint256);
+    function deposit1Max() external view returns(uint256);
+    function maxTotalSupply() external view returns(uint256);
+
     function deposit(
         uint256,
         uint256,

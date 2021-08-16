@@ -4,6 +4,8 @@ pragma solidity 0.7.6;
 
 interface IICHIVisorFactory {
 
+    function uniswapV3Factory() external view returns(address);
+
     event UniswapV3Factory(
         address sender, 
         address uniswapV3);
@@ -30,7 +32,7 @@ interface IICHIVisorFactory {
 
     function tokenAtIndex(uint index) external returns(address);
 
-    function isToken(address _token) external returns(bool);
+    function isToken(address token) external returns(bool);
 
     function ichiVisorsCount() external view returns (uint256);
 
@@ -42,4 +44,5 @@ interface IICHIVisorFactory {
 
     function tokenIchiVisorAtIndex(address token, uint index) external view returns(address);
 
+    function isTokenIchiVisor(address token, address ichiVisor) external view returns(bool);
 }
