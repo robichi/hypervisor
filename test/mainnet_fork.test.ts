@@ -21,9 +21,7 @@ import {
     UniswapV3Factory,
     IUniswapV3Pool,
     ICHIVisorFactory,
-    HypervisorFactory,
     ICHIVisor,
-    Hypervisor,
     NonfungiblePositionManager,
     TestERC20
 } from "../typechain"
@@ -38,7 +36,6 @@ describe('Hypervisors on Mainnet Fork', () => {
     let usdcAddress = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
     let uniswapV3Factory = '0x1F98431c8aD98523631AE4a59f267346ea31F984'
     let whaleAddress = "0x0548F59fEE79f8832C299e01dCA5c76F034F558e"
-    let hypervisorFactory: HypervisorFactory
     let ichiVisorFactory: ICHIVisorFactory
     let ethUsdtHypervisor: ICHIVisor
     let usdcEthHypervisor: ICHIVisor
@@ -47,27 +44,16 @@ describe('Hypervisors on Mainnet Fork', () => {
     let usdc: TestERC20
 
     beforeEach('deploy contracts', async () => {
-        const hypervisorFactoryFactory = await ethers.getContractFactory('HypervisorFactory')
-        hypervisorFactory = (await hypervisorFactoryFactory.deploy(uniswapV3Factory)) as HypervisorFactory
-    
         const ichiVisorFactoryFactory = await ethers.getContractFactory('ICHIVisorFactory')
-        ichiVisorFactory = (await ichiVisorFactoryFactory.deploy(uniswapV3Factory, hypervisorFactory.address)) as ICHIVisorFactory
+        ichiVisorFactory = (await ichiVisorFactoryFactory.deploy(uniswapV3Factory)) as ICHIVisorFactory
     
-        // console.log("initial HV Factory owner " + await hypervisorFactory.owner());
-        await hypervisorFactory.init(ichiVisorFactory.address);
-        // console.log("later HV Factory owner " + await hypervisorFactory.owner());
-
         // let [owner, alice] = await ethers.getSigners()
 
-        await ichiVisorFactory.createIchiVisor(wethAddress, true, usdtAddress, true, FeeAmount.MEDIUM)
-        await ichiVisorFactory.createIchiVisor(usdcAddress, true, wethAddress, true, FeeAmount.MEDIUM)
+        await ichiVisorFactory.createICHIVisor(wethAddress, true, usdtAddress, true, FeeAmount.MEDIUM)
+        await ichiVisorFactory.createICHIVisor(usdcAddress, true, wethAddress, true, FeeAmount.MEDIUM)
         
-        let res = await ichiVisorFactory.visorKey(wethAddress, usdtAddress, FeeAmount.MEDIUM)
-        let key = res[0];
-        const ethUsdtHypervisorAddress = (await ichiVisorFactory.ichiVisor(key)).ichivisor;
-        res = await ichiVisorFactory.visorKey(usdcAddress, wethAddress, FeeAmount.MEDIUM)
-        key = res[0];
-        const usdcEthHypervisorAddress = (await ichiVisorFactory.ichiVisor(key)).ichivisor;
+        let ethUsdtHypervisorAddress = await ichiVisorFactory.getICHIVisor(wethAddress, usdtAddress, FeeAmount.MEDIUM, true, true);
+        let usdcEthHypervisorAddress = await ichiVisorFactory.getICHIVisor(usdcAddress, wethAddress, FeeAmount.MEDIUM, true, true);
 
         ethUsdtHypervisor = (await ethers.getContractAt('ICHIVisor', ethUsdtHypervisorAddress)) as ICHIVisor
         usdcEthHypervisor = (await ethers.getContractAt('ICHIVisor', usdcEthHypervisorAddress)) as ICHIVisor

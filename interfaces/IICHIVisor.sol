@@ -1,31 +1,20 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Unlicense
+
 pragma solidity 0.7.6;
 
-interface IICHIVisor {
+interface IICHIVisor{
 
-    function uniswapV3Factory() external view returns(address);
-    function hypervisorFactory() external view returns(address);
-    function hypervisor() external view returns(address); 
-    function pool() external view returns(address);
-    function token0() external view returns(address);
-    function allowToken0() external view returns(bool);
-    function token1() external view returns(address);
-    function allowToken1() external view returns(bool);
-    function fee() external view returns(uint24);
-
-    function init(address deployer) external returns(address _hypervisor);
-    
     function deposit(
-        uint256 deposit0,
-        uint256 deposit1,
-        address to
-    ) external returns (uint256 shares);
+        uint256,
+        uint256,
+        address
+    ) external returns (uint256);
 
     function withdraw(
-        uint256 shares,
-        address to,
-        address from
-    ) external returns (uint256 amount0, uint256 amount1);
+        uint256,
+        address,
+        address
+    ) external returns (uint256, uint256);
 
     function rebalance(
         int24 _baseLower,
@@ -38,20 +27,14 @@ interface IICHIVisor {
 
     function setDepositMax(
         uint256 _deposit0Max, 
-        uint256 _deposit1Max) 
-        external;   
+        uint256 _deposit1Max) external;
 
-    event HypervisorCreated(
-        address uniswapV3Factory, 
-        address hypervisorFactory, 
-        address pool, 
-        address token0, 
-        bool allowToken0, 
-        address token1, 
-        bool allowToken1, 
-        uint24 fee);
+    function getTotalAmounts() external view returns (uint256, uint256);
 
-    event Initialized(address _hypervisor);
+    event DeployICHIVisor(
+        address sender, 
+        address _pool, 
+        address _owner);
 
     event Deposit(
         address indexed sender,
@@ -70,15 +53,9 @@ interface IICHIVisor {
     );
 
     event Rebalance(
-        int24 _baseLower,
-        int24 _baseUpper,
-        int24 _limitLower,
-        int24 _limitUpper,
-        address feeRecipient,
-        int256 swapQuantity
+        int24 tick,
+        uint256 totalAmount0,
+        uint256 totalAmount1,
+        uint256 totalSupply
     );
-
-    event SetDepositMax(
-        uint _deposit0Max, 
-        uint _deposit1Max);        
 }

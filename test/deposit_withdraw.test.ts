@@ -22,10 +22,8 @@ import {
     IUniswapV3Pool,
     ICHIVisorFactory,
     ICHIVisor,
-    Hypervisor,
     NonfungiblePositionManager,
-    TestERC20,
-    IHypervisorFactory
+    TestERC20
 } from "../typechain"
 
 const createFixtureLoader = waffle.createFixtureLoader
@@ -47,7 +45,6 @@ describe('ICHIVisor General Functionality', () => {
     let uniswapPool: IUniswapV3Pool
     let ichiVisorFactory: ICHIVisorFactory
     let ichiVisor: ICHIVisor
-    let hypervisor: Hypervisor
 
     let loadFixture: ReturnType<typeof createFixtureLoader>
     before('create fixture loader', async () => {
@@ -59,11 +56,9 @@ describe('ICHIVisor General Functionality', () => {
         // console.log("ICHIVisor Factory " + ichiVisorFactory.address);
         // console.log("ICHIVisor factory owner " + await ichiVisorFactory.owner());
         // console.log("wallet used to create new ICHIVisors " + wallet.address);
-        await ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
+        await ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
         
-        const res = await ichiVisorFactory.visorKey(token0.address, token1.address, FeeAmount.MEDIUM)
-        const key = res[0];
-        const ichiVisorAddress = (await ichiVisorFactory.ichiVisor(key)).ichivisor;
+        let ichiVisorAddress = await ichiVisorFactory.getICHIVisor(token0.address, token1.address, FeeAmount.MEDIUM, true, true);
         ichiVisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
         // console.log("ICHIVisor address " + ichiVisor.address);
 
@@ -71,9 +66,6 @@ describe('ICHIVisor General Functionality', () => {
         uniswapPool = (await ethers.getContractAt('IUniswapV3Pool', poolAddress)) as IUniswapV3Pool
         await uniswapPool.initialize(encodePriceSqrt('1', '1'))
         await ichiVisor.connect(wallet).setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000'))
-        const hypervisorAddress = await ichiVisor.hypervisor();
-        hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
-        // console.log("ICHIVisor owner " + await hypervisor.owner());
 
         // adding extra liquidity into pool to make sure there's always
         // someone to swap with
@@ -120,20 +112,13 @@ describe('ICHIVisor General Functionality', () => {
         // expect alice's deposit smaller than deposit maximums to be accepted
         await ichiVisor.connect(alice).deposit(smallTokenAmount, smallTokenAmount, alice.address)
 
-        let token0hypervisor = await token0.balanceOf(hypervisor.address)
-        let token1hypervisor = await token1.balanceOf(hypervisor.address)
+        let token0hypervisor = await token0.balanceOf(ichiVisor.address)
+        let token1hypervisor = await token1.balanceOf(ichiVisor.address)
         // check that all the tokens alice depostied ended up in the hypervisor
         expect(token0hypervisor).to.equal(smallTokenAmount)
         expect(token1hypervisor).to.equal(smallTokenAmount)
 
         alice_liq_balance = await ichiVisor.balanceOf(alice.address)
-        let alice_liq_balance_in_hv = await hypervisor.balanceOf(alice.address)
-        let ichivisor_liq_balance = await hypervisor.balanceOf(ichiVisor.address)
-
-        // alice should have no shares in the hypervisor itself
-        expect(alice_liq_balance_in_hv).to.equal(0)
-        // ICHIVisor should have the shares
-        expect(ichivisor_liq_balance).to.equal(ethers.utils.parseEther('2000'))
 
         // check that alice has been awarded liquidity tokens in ICHIVisor equal the
         // quantity of tokens deposited since their price is the same
@@ -141,20 +126,20 @@ describe('ICHIVisor General Functionality', () => {
 
         // liquidity positions will only be created once rebalance is called
         await ichiVisor.rebalance(-1800, 1800, -600, 0, bob.address, 0)
-        token0hypervisor = await token0.balanceOf(hypervisor.address)
-        token1hypervisor = await token1.balanceOf(hypervisor.address)
+        token0hypervisor = await token0.balanceOf(ichiVisor.address)
+        token1hypervisor = await token1.balanceOf(ichiVisor.address)
         // all of the hypervisor assets should have been deployed in v3 lp positions
         expect(token0hypervisor).to.equal(0)
         expect(token1hypervisor).to.equal(0)
 
-        let basePosition = await hypervisor.getBasePosition()
-        let limitPosition = await hypervisor.getLimitPosition()
+        let basePosition = await ichiVisor.getBasePosition()
+        let limitPosition = await ichiVisor.getLimitPosition()
         expect(basePosition[0]).to.be.gt(0)
         expect(limitPosition[0]).to.be.equal(0)
 
         await ichiVisor.connect(alice).deposit(smallTokenAmount, ethers.utils.parseEther('4000'), alice.address)
-        token0hypervisor = await token0.balanceOf(hypervisor.address)
-        token1hypervisor = await token1.balanceOf(hypervisor.address)
+        token0hypervisor = await token0.balanceOf(ichiVisor.address)
+        token1hypervisor = await token1.balanceOf(ichiVisor.address)
         expect(token0hypervisor).to.equal(smallTokenAmount)
         expect(token1hypervisor).to.equal(ethers.utils.parseEther('4000'))
         alice_liq_balance = await ichiVisor.balanceOf(alice.address)
@@ -180,7 +165,7 @@ describe('ICHIVisor General Functionality', () => {
 
         let limitUpper = -60
         let limitLower = -540
-        let tokenAmounts = await hypervisor.getTotalAmounts()
+        let tokenAmounts = await ichiVisor.getTotalAmounts()
         let token0BeforeRebalanceSwap = tokenAmounts[0]
         let token1BeforeRebalanceSwap = tokenAmounts[1]
         let fees0 = await token0.balanceOf(bob.address)
@@ -189,11 +174,11 @@ describe('ICHIVisor General Functionality', () => {
         expect(fees1).to.equal(0)
         let rebalanceSwapAmount = ethers.utils.parseEther('4000')
         await ichiVisor.rebalance(-1800, 1920, limitLower, limitUpper, bob.address, rebalanceSwapAmount)
-        tokenAmounts = await hypervisor.getTotalAmounts()
+        tokenAmounts = await ichiVisor.getTotalAmounts()
         let token0AfterRebalanceSwap = tokenAmounts[0]
         expect(token0BeforeRebalanceSwap.sub(token0AfterRebalanceSwap).sub(rebalanceSwapAmount).abs()).to.be.lt(ethers.utils.parseEther('1'))
-        token0hypervisor = await token0.balanceOf(hypervisor.address)
-        token1hypervisor = await token1.balanceOf(hypervisor.address)
+        token0hypervisor = await token0.balanceOf(ichiVisor.address)
+        token1hypervisor = await token1.balanceOf(ichiVisor.address)
         expect(token0hypervisor).to.equal(0)
         expect(token1hypervisor).to.equal(0)
         fees0 = await token0.balanceOf(bob.address)
@@ -206,13 +191,13 @@ describe('ICHIVisor General Functionality', () => {
         expect(fees1).to.equal(0)
 
         // have the positions been updated? Are the token amounts unchanged?
-        basePosition = await hypervisor.getBasePosition()
-        limitPosition = await hypervisor.getLimitPosition()
+        basePosition = await ichiVisor.getBasePosition()
+        limitPosition = await ichiVisor.getLimitPosition()
         expect(basePosition[0]).to.be.gt(0)
         expect(limitPosition[0]).to.be.gt(0)
 
         await ichiVisor.rebalance(-1800, 1920, limitLower, limitUpper, bob.address, rebalanceSwapAmount.mul(-1))
-        tokenAmounts = await hypervisor.getTotalAmounts()
+        tokenAmounts = await ichiVisor.getTotalAmounts()
         let token0AfterSecondRebalance = tokenAmounts[0]
         let token1AfterSecondRebalance = tokenAmounts[1]
         expect(token0AfterSecondRebalance.sub(token0BeforeRebalanceSwap).abs()).to.be.lt(ethers.utils.parseEther('15'))
@@ -220,9 +205,8 @@ describe('ICHIVisor General Functionality', () => {
 
         // test withdrawal of liquidity
         alice_liq_balance = await ichiVisor.balanceOf(alice.address)
-        ichivisor_liq_balance = await hypervisor.balanceOf(ichiVisor.address)
         await ichiVisor.connect(alice).withdraw(alice_liq_balance, alice.address, alice.address)
-        tokenAmounts = await hypervisor.getTotalAmounts()
+        tokenAmounts = await ichiVisor.getTotalAmounts()
         // verify that all liquidity has been removed from the pool
         expect(tokenAmounts[0]).to.equal(0)
         expect(tokenAmounts[1]).to.equal(0)
@@ -241,8 +225,8 @@ describe('ICHIVisor General Functionality', () => {
 
         await ichiVisor.connect(alice).deposit(smallTokenAmount, smallTokenAmount, alice.address)
 
-        let token0hypervisor = await token0.balanceOf(hypervisor.address)
-        let token1hypervisor = await token1.balanceOf(hypervisor.address)
+        let token0hypervisor = await token0.balanceOf(ichiVisor.address)
+        let token1hypervisor = await token1.balanceOf(ichiVisor.address)
         expect(token0hypervisor).to.equal(smallTokenAmount)
         expect(token1hypervisor).to.equal(smallTokenAmount)
         alice_liq_balance = await ichiVisor.balanceOf(alice.address)
@@ -253,17 +237,17 @@ describe('ICHIVisor General Functionality', () => {
 
         // liquidity positions will only be created once rebalance is called
         await ichiVisor.rebalance(-120, 120, -60, 0, bob.address, 0)
-        token0hypervisor = await token0.balanceOf(hypervisor.address)
-        token1hypervisor = await token1.balanceOf(hypervisor.address)
+        token0hypervisor = await token0.balanceOf(ichiVisor.address)
+        token1hypervisor = await token1.balanceOf(ichiVisor.address)
         expect(token0hypervisor).to.equal(0)
         expect(token1hypervisor).to.equal(0)
 
-        let basePosition = await hypervisor.getBasePosition()
-        let limitPosition = await hypervisor.getLimitPosition()
+        let basePosition = await ichiVisor.getBasePosition()
+        let limitPosition = await ichiVisor.getLimitPosition()
         expect(basePosition[0]).to.be.gt(0)
         expect(limitPosition[0]).to.be.equal(0)
 
-        let tokenAmounts = await hypervisor.getTotalAmounts()
+        let tokenAmounts = await ichiVisor.getTotalAmounts()
         expect(tokenAmounts[0] === tokenAmounts[1])
 
         // do a test swap
@@ -282,9 +266,9 @@ describe('ICHIVisor General Functionality', () => {
 
         let limitUpper = 0
         let limitLower = -180
-        tokenAmounts = await hypervisor.getTotalAmounts()
+        tokenAmounts = await ichiVisor.getTotalAmounts()
         expect(tokenAmounts[0] > tokenAmounts[1])
-        let currentTick = await hypervisor.currentTick()
+        let currentTick = await ichiVisor.currentTick()
         // this is beyond the bounds of the original base position
         expect(currentTick).to.equal(-199)
 
@@ -293,8 +277,8 @@ describe('ICHIVisor General Functionality', () => {
         expect(fees0).to.equal(0)
         expect(fees1).to.equal(0)
         await ichiVisor.rebalance(-1800, 1800, limitLower, limitUpper, bob.address, 0)
-        token0hypervisor = await token0.balanceOf(hypervisor.address)
-        token1hypervisor = await token1.balanceOf(hypervisor.address)
+        token0hypervisor = await token0.balanceOf(ichiVisor.address)
+        token1hypervisor = await token1.balanceOf(ichiVisor.address)
         expect(token0hypervisor).to.equal(0)
         expect(token1hypervisor).to.equal(0)
         fees0 = await token0.balanceOf(bob.address)
@@ -305,8 +289,8 @@ describe('ICHIVisor General Functionality', () => {
         expect(fees0).to.equal(0)
         expect(fees1).to.equal(0)
         // have the positions been updated? Are the token amounts unchanged?
-        basePosition = await hypervisor.getBasePosition()
-        limitPosition = await hypervisor.getLimitPosition()
+        basePosition = await ichiVisor.getBasePosition()
+        limitPosition = await ichiVisor.getLimitPosition()
         // the base position should have 0 liquidity because we are left with
         // only a single asset after carol's big swap
         expect(basePosition[0]).to.equal(0)
@@ -324,14 +308,14 @@ describe('ICHIVisor General Functionality', () => {
             amountOutMinimum: ethers.utils.parseEther('0'),
             sqrtPriceLimitX96: 0,
         })
-        currentTick = await hypervisor.currentTick()
+        currentTick = await ichiVisor.currentTick()
         // this is beyond the bounds of the original base position
         expect(currentTick).to.equal(200)
         limitUpper = 180
         limitLower = 0
         await ichiVisor.rebalance(-1800, 1800, limitLower, limitUpper, bob.address, 0)
-        token0hypervisor = await token0.balanceOf(hypervisor.address)
-        token1hypervisor = await token1.balanceOf(hypervisor.address)
+        token0hypervisor = await token0.balanceOf(ichiVisor.address)
+        token1hypervisor = await token1.balanceOf(ichiVisor.address)
         expect(token0hypervisor).to.equal(0)
         expect(token1hypervisor).to.equal(0)
         fees1 = await token1.balanceOf(bob.address)
@@ -342,8 +326,8 @@ describe('ICHIVisor General Functionality', () => {
         expect(fees1).to.equal(0)
 
         // have the positions been updated? Are the token amounts unchanged?
-        basePosition = await hypervisor.getBasePosition()
-        limitPosition = await hypervisor.getLimitPosition()
+        basePosition = await ichiVisor.getBasePosition()
+        limitPosition = await ichiVisor.getLimitPosition()
         // the base position should have 0 liquidity because we are left with
         // only a single asset after carol's big swap
         expect(basePosition[0]).to.equal(0)
@@ -477,7 +461,7 @@ describe('ICHIVisor General Functionality', () => {
         alice_liq_balance = await ichiVisor.balanceOf(alice.address)
         expect(alice_liq_balance).to.equal(ethers.utils.parseEther('2000'))
         await ichiVisor.connect(alice).withdraw(alice_liq_balance, alice.address, alice.address)
-        let tokenAmounts = await hypervisor.getTotalAmounts()
+        let tokenAmounts = await ichiVisor.getTotalAmounts()
         // verify that all liquidity has been removed from the pool
         expect(tokenAmounts[0]).to.equal(0)
         expect(tokenAmounts[1]).to.equal(0)
@@ -499,7 +483,7 @@ describe('ICHIVisor General Functionality', () => {
         expect(token1Balance).to.equal(0)
 
         const user0_liq_balance = await ichiVisor.balanceOf(user0.address)
-        tokenAmounts = await hypervisor.getTotalAmounts()
+        tokenAmounts = await ichiVisor.getTotalAmounts()
         // verify that all liquidity has been removed from the pool
         expect(tokenAmounts[0]).to.be.gte(ethers.utils.parseEther('2000').sub(15))
         expect(tokenAmounts[1]).to.be.gte(ethers.utils.parseEther('2000').sub(15))
@@ -526,7 +510,6 @@ describe('ETHUSDT ICHIVisor Test', () => {
     let uniswapPool: IUniswapV3Pool
     let ichiVisorFactory: ICHIVisorFactory
     let ichiVisor: ICHIVisor
-    let hypervisor: Hypervisor
 
     let loadFixture: ReturnType<typeof createFixtureLoader>
     before('create fixture loader', async () => {
@@ -535,17 +518,12 @@ describe('ETHUSDT ICHIVisor Test', () => {
 
     beforeEach('deploy contracts', async () => {
         ({ token0, token1, token2, factory, router, nft, ichiVisorFactory } = await loadFixture(ichiVisorTestFixture))
-        await ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
+        await ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
 
-        const res = await ichiVisorFactory.visorKey(token0.address, token1.address, FeeAmount.MEDIUM)
-        const key = res[0];
-        const ichiVisorAddress = (await ichiVisorFactory.ichiVisor(key)).ichivisor;
+        let ichiVisorAddress = await ichiVisorFactory.getICHIVisor(token0.address, token1.address, FeeAmount.MEDIUM, true, true);
         ichiVisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
  
         await ichiVisor.connect(wallet).setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000'))
-        
-        const hypervisorAddress = await ichiVisor.hypervisor();
-        hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
 
         const poolAddress = await factory.getPool(token0.address, token1.address, FeeAmount.MEDIUM)
         uniswapPool = (await ethers.getContractAt('IUniswapV3Pool', poolAddress)) as IUniswapV3Pool

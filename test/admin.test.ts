@@ -24,11 +24,8 @@ import {
     IUniswapV3Pool,
     ICHIVisorFactory,
     ICHIVisor,
-    Hypervisor,
     NonfungiblePositionManager,
-    TestERC20,
-    HypervisorFactory,
-    IHypervisorFactory
+    TestERC20
 } from "../typechain"
 
 const NULL_ADDRESS = "0x0000000000000000000000000000000000000000"
@@ -50,9 +47,7 @@ describe('Access Control Checks', () => {
     let token2: TestERC20
     let uniswapPool: IUniswapV3Pool
     let ichiVisorFactory: ICHIVisorFactory
-    let hypervisorFactory: HypervisorFactory
     let ichiVisor: ICHIVisor
-    let hypervisor: Hypervisor
 
     let loadFixture: ReturnType<typeof createFixtureLoader>
     before('create fixture loader', async () => {
@@ -61,23 +56,15 @@ describe('Access Control Checks', () => {
 
     beforeEach('deploy contracts', async () => {
         ({ token0, token1, token2, factory, router, nft, ichiVisorFactory } = await loadFixture(ichiVisorTestFixture))
-        await ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
+        await ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
         
-        const res = await ichiVisorFactory.visorKey(token0.address, token1.address, FeeAmount.MEDIUM)
-        const key = res[0];
-        const ichiVisorAddress = (await ichiVisorFactory.ichiVisor(key)).ichivisor;
+        const ichiVisorAddress = await ichiVisorFactory.ichiVisorAtIndex(0);
         ichiVisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
 
         const poolAddress = await factory.getPool(token0.address, token1.address, FeeAmount.MEDIUM)
         uniswapPool = (await ethers.getContractAt('IUniswapV3Pool', poolAddress)) as IUniswapV3Pool
         await uniswapPool.initialize(encodePriceSqrt('1', '1'))
         await ichiVisor.connect(wallet).setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000'))
-
-        const hypervisorAddress = await ichiVisor.hypervisor();
-        hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
-
-        const hypervisorFactoryAddress = await ichiVisorFactory.hypervisorFactory();
-        hypervisorFactory = (await ethers.getContractAt('HypervisorFactory', hypervisorFactoryAddress)) as HypervisorFactory
 
         // adding extra liquidity into pool to make sure there's always
         // someone to swap with
@@ -106,13 +93,12 @@ describe('Access Control Checks', () => {
     it('ICHIVisorFactory', async () => {
         let msg1 = "Ownable: caller is not the owner";
 
-        await truffleAssert.reverts(ichiVisorFactory.connect(alice).createIchiVisor(token0.address, true, token0.address, true, FeeAmount.MEDIUM), msg1);
+        await truffleAssert.reverts(ichiVisorFactory.connect(alice).createICHIVisor(token0.address, true, token0.address, true, FeeAmount.MEDIUM), msg1);
     })
 
     it('ICHIVisor', async () => {
-        let msg1 = "Ownable: caller is not the owner";
+        let msg1 = "ICHIVisor.onlyOwner: only owner";
 
-        await truffleAssert.reverts(ichiVisor.connect(alice).init(alice.address), msg1);
         await truffleAssert.reverts(ichiVisor.connect(alice).rebalance(-1800, 1800, -600, 0, alice.address, 0), msg1);
         await truffleAssert.reverts(ichiVisor.connect(alice).setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000')), msg1);
 
@@ -132,9 +118,7 @@ describe('Input Validation Checks', () => {
     let token2: TestERC20
     let uniswapPool: IUniswapV3Pool
     let ichiVisorFactory: ICHIVisorFactory
-    let hypervisorFactory: HypervisorFactory
     let ichiVisor: ICHIVisor
-    let hypervisor: Hypervisor
 
     let loadFixture: ReturnType<typeof createFixtureLoader>
     before('create fixture loader', async () => {
@@ -143,23 +127,15 @@ describe('Input Validation Checks', () => {
 
     beforeEach('deploy contracts', async () => {
         ({ token0, token1, token2, factory, router, nft, ichiVisorFactory } = await loadFixture(ichiVisorTestFixture))
-        await ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
+        await ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
         
-        const res = await ichiVisorFactory.visorKey(token0.address, token1.address, FeeAmount.MEDIUM)
-        const key = res[0];
-        const ichiVisorAddress = (await ichiVisorFactory.ichiVisor(key)).ichivisor;
+        const ichiVisorAddress = await ichiVisorFactory.ichiVisorAtIndex(0);
         ichiVisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
 
         const poolAddress = await factory.getPool(token0.address, token1.address, FeeAmount.MEDIUM)
         uniswapPool = (await ethers.getContractAt('IUniswapV3Pool', poolAddress)) as IUniswapV3Pool
         await uniswapPool.initialize(encodePriceSqrt('1', '1'))
         await ichiVisor.connect(wallet).setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000'))
-
-        const hypervisorAddress = await ichiVisor.hypervisor();
-        hypervisor = (await ethers.getContractAt('Hypervisor', hypervisorAddress)) as Hypervisor
-
-        const hypervisorFactoryAddress = await ichiVisorFactory.hypervisorFactory();
-        hypervisorFactory = (await ethers.getContractAt('HypervisorFactory', hypervisorFactoryAddress)) as HypervisorFactory
 
         // adding extra liquidity into pool to make sure there's always
         // someone to swap with
@@ -186,78 +162,44 @@ describe('Input Validation Checks', () => {
     })
 
     it('ICHIVisorFactory - createIchiVisor', async () => {
-        let msg1 = "ICHIVisorFactory.createIchiVisor: Identical token addresses",
-            msg2 = "ICHIVisorFactory.createIchiVisor: token undefined",
-            msg3 = "ICHIVisorFactory.createIchiVisor: At least one token must be allowed",
-            msg4 = "ICHIVisorFactory.createIchiVisor:: (500) hypervisor address collision",
-            msg5 = "ICHIVisor.constructor: Incorrect Fee";
+        let msg1 = "ICHIVisorFactory.createICHIVisor: Identical token addresses",
+            msg2 = "ICHIVisorFactory.createICHIVisor: zero address",
+            msg3 = "ICHIVisorFactory.createICHIVisor: At least one token must be allowed",
+            msg4 = "ICHIVisorFactory.createICHIVisor: ICHIVisor exists",
+            msg5 = "ICHIVisorFactory.createICHIVisor: fee incorrect";
 
-        await truffleAssert.reverts(ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, token0.address, true, FeeAmount.MEDIUM), msg1);
-        await truffleAssert.reverts(ichiVisorFactory.connect(wallet).createIchiVisor(NULL_ADDRESS, true, token1.address, true, FeeAmount.MEDIUM), msg2);
-        await truffleAssert.reverts(ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, NULL_ADDRESS, true, FeeAmount.MEDIUM), msg2);
-        await truffleAssert.reverts(ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, false, token1.address, false, FeeAmount.MEDIUM), msg3);
-        await truffleAssert.reverts(ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM), msg4);
-        await truffleAssert.reverts(ichiVisorFactory.connect(wallet).createIchiVisor(token0.address, true, token1.address, true, FeeAmount.BAD), msg5);
+        await truffleAssert.reverts(ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, true, token0.address, true, FeeAmount.MEDIUM), msg1);
+        await truffleAssert.reverts(ichiVisorFactory.connect(wallet).createICHIVisor(NULL_ADDRESS, true, token1.address, true, FeeAmount.MEDIUM), msg2);
+        await truffleAssert.reverts(ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, true, NULL_ADDRESS, true, FeeAmount.MEDIUM), msg2);
+        await truffleAssert.reverts(ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, false, token1.address, false, FeeAmount.MEDIUM), msg3);
+        await truffleAssert.reverts(ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, true, token1.address, true, FeeAmount.MEDIUM), msg4);
+        await truffleAssert.reverts(ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, true, token1.address, true, FeeAmount.BAD), msg5);
     })
 
     function msg(text: string) {
         return "VM Exception while processing transaction: reverted with reason string '" + text + "'";
     }
 
-    it('ICHIVisor - create without a factory', async () => {
-        let msg1 = "ICHIVisor.constructor: Identical token addresses",
-            msg2 = "ICHIVisor.constructor: token undefined",
-            msg3 = "ICHIVisor.constructor: At least one token must be allowed",
-            msg4 = "ICHIVisor.constructor: Incorrect Fee",
-            msg5 = "ICHIVisor.initialied: not initialized",
-            msg6 = "HypervisorFactory.createHypervisor: hypervisor exists",
-            msg7 = "HypervisorFactory.onlyTrusted: caller wasn't created by the ichiVisorFactory";
+    it('ICHIVisor - deposit', async () => {
+        let msg1 = "ICHIVisor.deposit: token0 prohibited by ICHIVisor policy",
+            msg2 = "ICHIVisor.deposit: token1 prohibited by ICHIVisor policy";
 
-        const ichiVisorContract = await ethers.getContractFactory('ICHIVisor')
+        await ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, true, token1.address, false, FeeAmount.HIGH)
+        await ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, false, token1.address, true, FeeAmount.LOW)
+
+        let ichiVisorAddress = await ichiVisorFactory.getICHIVisor(token0.address, token1.address, FeeAmount.HIGH, true, false);
+        ichiVisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
 
         await truffleAssert.reverts(
-            ichiVisorContract.deploy(hypervisorFactory.address, factory.address,
-            token0.address, true, token0.address, true, FeeAmount.HIGH), msg(msg1));
-        await truffleAssert.reverts(
-            ichiVisorContract.deploy(hypervisorFactory.address, factory.address,
-            NULL_ADDRESS, true, token1.address, true, FeeAmount.HIGH), msg(msg2));
-        await truffleAssert.reverts(
-            ichiVisorContract.deploy(hypervisorFactory.address, factory.address,
-            token0.address, true, NULL_ADDRESS, true, FeeAmount.HIGH), msg(msg2));
-        await truffleAssert.reverts(
-            ichiVisorContract.deploy(hypervisorFactory.address, factory.address,
-            token0.address, false, token1.address, false, FeeAmount.HIGH), msg(msg3));
-        await truffleAssert.reverts(
-            ichiVisorContract.deploy(hypervisorFactory.address, factory.address,
-            token0.address, false, token1.address, true, FeeAmount.BAD), msg(msg4));
+            ichiVisor.deposit(smallTokenAmount, ethers.utils.parseEther('4000'), alice.address), msg2);
                 
-        // now let's create a few for real
-        const ichiVisorManualMed = (await ichiVisorContract.deploy(hypervisorFactory.address, factory.address,
-            token0.address, true, token1.address, true, FeeAmount.MEDIUM)) as ICHIVisor
-        const ichiVisorManualHigh = (await ichiVisorContract.deploy(hypervisorFactory.address, factory.address,
-            token0.address, true, token1.address, true, FeeAmount.HIGH)) as ICHIVisor
-    
-        console.log(ichiVisorManualMed.address);
-        console.log(ichiVisorManualHigh.address);
+        ichiVisorAddress = await ichiVisorFactory.getICHIVisor(token0.address, token1.address, FeeAmount.LOW, false, true);
+        ichiVisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
 
-        // can't do anything until the init is called
-        await truffleAssert.reverts(ichiVisorManualMed.setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000')), msg5);
-        await truffleAssert.reverts(ichiVisorManualMed.deposit(smallTokenAmount, ethers.utils.parseEther('4000'), alice.address), msg5);
-        await truffleAssert.reverts(ichiVisorManualMed.withdraw(smallTokenAmount, alice.address, alice.address), msg5);
-        await truffleAssert.reverts(ichiVisorManualMed.rebalance(-1800, 1800, -600, 0, alice.address, 0), msg5);
-
-        // now let's try to init the ICHIVisor. Should be failing in all cases
-        // hypervisor already exists
-        await truffleAssert.reverts(ichiVisorManualMed.init(wallet.address), msg6);
-        // ICHIVisor wasn't registered with ICHIVisorFactory, so hypervisor factory refuses to work
-        await truffleAssert.reverts(ichiVisorManualHigh.init(wallet.address), msg7);
-
-        //await ichiVisorManualMed.init(wallet.address);
-
-        // should be able to use it now
-        //await ichiVisorManualMed.setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000'))
-
+        await truffleAssert.reverts(
+            ichiVisor.deposit(smallTokenAmount, ethers.utils.parseEther('4000'), alice.address), msg1);
     })
+
 })
 
 

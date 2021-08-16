@@ -1,106 +1,74 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.7.6;
+pragma solidity =0.7.6;
 
-import './ICHIVisor.sol';
-import "../interfaces/IICHIVisorFactory.sol";
-import '@openzeppelin/contracts/access/Ownable.sol';
-import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
-import './lib/Bytes32Set.sol';
-import './lib/AddressSet.sol';
+import {IICHIVisorFactory} from '../interfaces/IICHIVisorFactory.sol';
+import {IUniswapV3Factory} from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
+import {ICHIVisor} from './ICHIVisor.sol';
+import "./lib/AddressSet.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
 contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
-
     using AddressSet for AddressSet.Set;
-    using Bytes32Set for Bytes32Set.Set;
 
     address constant NULL_ADDRESS = address(0);
 
-    address public override immutable uniswapV3Factory;
-    address public override immutable hypervisorFactory;
-    
+    IUniswapV3Factory public immutable uniswapV3Factory;
+
     struct Token {
-        Bytes32Set.Set visorSet;
+        AddressSet.Set visorSet;
     }
     mapping(address => Token) tokens;
     AddressSet.Set tokenSet;
 
-    struct IchiVisor {
-        address ichivisor;
-        address hypervisor;
-        address token0;
-        bool allowToken0;
-        address token1;
-        bool allowToken1;
-        uint fee;
-    }
-    Bytes32Set.Set visorSet;
-    mapping(bytes32 => IchiVisor) public override ichiVisor;
+    mapping(address => mapping(address => mapping(uint24 => mapping(bool => mapping(bool => address))))) public getICHIVisor; // token0, token1, fee, allowToken1, allowToken2 -> ichiVisor address
+    AddressSet.Set visorSet;
 
-    constructor(address _uniswapV3Factory, address _hypervisorFactory) {
-        uniswapV3Factory = _uniswapV3Factory;
-        hypervisorFactory = _hypervisorFactory;
+    constructor(address _uniswapV3Factory) {
+        uniswapV3Factory = IUniswapV3Factory(_uniswapV3Factory);
         emit UniswapV3Factory(msg.sender, _uniswapV3Factory);
     }
 
-    function createIchiVisor(
+    function createICHIVisor(
         address tokenA,
         bool allowTokenA,
         address tokenB,
         bool allowTokenB,
         uint24 fee
-    ) external override onlyOwner returns (address newIchiVisor, address hypervisor) {
-        (address token0, address token1) = _orderedPair(tokenA, tokenB);
-        require(token0 != token1, 'ICHIVisorFactory.createIchiVisor: Identical token addresses');
-        require(token0 != NULL_ADDRESS, 'ICHIVisorFactory.createIchiVisor: token undefined');
-        require(allowTokenA || allowTokenB, 'ICHIVisorFactory.createIchiVisor: At least one token must be allowed');
+    ) external override onlyOwner returns (address ichiVisor) {
+        require(tokenA != tokenB, 'ICHIVisorFactory.createICHIVisor: Identical token addresses');
+        require(allowTokenA || allowTokenB, 'ICHIVisorFactory.createICHIVisor: At least one token must be allowed');
 
-        // configure policy
-        bool allowToken0 = (token0 == tokenA) ? allowTokenA : allowTokenB;
-        bool allowToken1 = (token1 == tokenB) ? allowTokenB : allowTokenA;
+        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        (bool allowToken0, bool allowToken1) = tokenA < tokenB ? (allowTokenA, allowTokenB) : (allowTokenB, allowTokenA);
 
-        // deploy the hypervisor
-        newIchiVisor = address(new ICHIVisor{salt: keccak256(abi.encodePacked(
-            visorSet.count()
-        ))}(
-            hypervisorFactory,
-            uniswapV3Factory,
-            token0, 
-            allowToken0, 
-            token1, 
-            allowToken1, 
-            fee
-        ));
+        require(token0 != NULL_ADDRESS, 'ICHIVisorFactory.createICHIVisor: zero address');
 
-        (bytes32 visorId, /* bool exists */ ) = visorKey(token0, token1, fee);
+        require(getICHIVisor[token0][token1][fee][allowToken0][allowToken1] == NULL_ADDRESS, 'ICHIVisorFactory.createICHIVisor: ICHIVisor exists');
 
+        int24 tickSpacing = uniswapV3Factory.feeAmountTickSpacing(fee);
+        require(tickSpacing != 0, 'ICHIVisorFactory.createICHIVisor: fee incorrect');
+        address pool = uniswapV3Factory.getPool(tokenA, tokenB, fee);
+        if (pool == NULL_ADDRESS) {
+            pool = uniswapV3Factory.createPool(token0, token1, fee);
+        }
+        address poolToken0 = IUniswapV3Pool(pool).token0();
+
+        (token0, token1) = tokenA == poolToken0 ? (tokenA, tokenB) : (tokenB, tokenA);
+        (allowToken0, allowToken1) = tokenA == poolToken0 ? (allowTokenA, allowTokenB) : (allowTokenB, allowTokenA);
+
+        ichiVisor = address(
+            new ICHIVisor{salt: keccak256(abi.encodePacked(token0, allowToken0, token1, allowToken1, fee, tickSpacing))}(pool, allowToken0, allowToken1, owner())
+        );
+
+        getICHIVisor[token0][token1][fee][allowToken0][allowToken1] = ichiVisor;
+        getICHIVisor[token1][token0][fee][allowToken1][allowToken0] = ichiVisor; // populate mapping in the reverse direction
+        visorSet.insert(ichiVisor, 'ICHIVisorFactory.createICHIVisor: ICHIVisor already exists');
         // should not be possible for these inserts to fail
-        visorSet.insert(visorId, 'ICHIVisorFactory.createIchiVisor:: (500) hypervisor address collision');
-        tokens[token0].visorSet.insert(visorId, 'ICHIVisorFactory.createIchiVisor:: (500) token0 collision');
-        tokens[token1].visorSet.insert(visorId, 'ICHIVisorFactory.createIchiVisor:: (500) token1 collision');
+        tokens[token0].visorSet.insert(ichiVisor, 'ICHIVisorFactory.createICHIVisor:: (500) token0 collision');
+        tokens[token1].visorSet.insert(ichiVisor, 'ICHIVisorFactory.createICHIVisor:: (500) token1 collision');
 
-        // initialize the ichiVisor
-        hypervisor = ICHIVisor(newIchiVisor).init(msg.sender);
-        
-        // update the discoverable state
-        IchiVisor memory newVisor = IchiVisor({
-            ichivisor: newIchiVisor,
-            hypervisor: hypervisor,
-            token0: token0,
-            allowToken0: allowToken0,
-            token1: token1,
-            allowToken1: allowToken1,
-            fee: fee
-        });
-        ichiVisor[visorId] = newVisor;
-        IHypervisorFactory(hypervisorFactory).subordinateHypervisor(hypervisor, newIchiVisor);
-
-        emit IchiVisorCreated(msg.sender, newIchiVisor, visorId, token0, token1, fee, visorSet.count());
-    }
-
-    function visorKey(address tokenA, address tokenB, uint fee) public override view returns(bytes32 key, bool exists) {
-        (address token0, address token1) = _orderedPair(tokenA, tokenB);
-        key = keccak256(abi.encodePacked(token0, token1, fee));
-        exists = visorSet.exists(key);
+        emit ICHIVisorCreated(msg.sender, ichiVisor, token0, allowToken0, token1, allowToken1, fee, visorSet.count());
     }
 
     function tokenCount() external override view returns(uint) {
@@ -119,23 +87,20 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
         return visorSet.count();
     }
 
-    function ichiVisorAtIndex(uint index) external override view returns(bytes32) {
+    function ichiVisorAtIndex(uint index) external override view returns(address) {
         return visorSet.keyAtIndex(index);
     }
 
-    function isIchiVisor(bytes32 checkIchiVisor) external override view returns(bool) {
-        return visorSet.exists(checkIchiVisor);
+    function isIchiVisor(address ichiVisor) external override view returns(bool) {
+        return visorSet.exists(ichiVisor);
     }
 
     function tokenIchiVisorCount(address token) external override view returns(uint) {
         return tokens[token].visorSet.count();
     }
 
-    function tokenIchiVisorAtIndex(address token, uint index) external override view returns(bytes32) {
+    function tokenIchiVisorAtIndex(address token, uint index) external override view returns(address) {
         return tokens[token].visorSet.keyAtIndex(index);
     }
 
-    function _orderedPair(address a, address b) private pure returns(address, address) {
-        return a < b ? (a, b) : (b, a);
-    }
 }
