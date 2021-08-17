@@ -21,14 +21,30 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
     mapping(address => Token) tokens;
     AddressSet.Set tokenSet;
 
+    /**
+     @notice getICHIVisor allows direct lookup for ICHIVisors using token0/token1/fee/allowToken0/allowToken1 values
+     */
     mapping(address => mapping(address => mapping(uint24 => mapping(bool => mapping(bool => address))))) public getICHIVisor; // token0, token1, fee, allowToken1, allowToken2 -> ichiVisor address
     AddressSet.Set visorSet;
 
+    /**
+     @notice creates an instance of ICHIVisorFactory
+     @param _uniswapV3Factory Uniswap V3 factory
+     */
     constructor(address _uniswapV3Factory) {
         uniswapV3Factory = _uniswapV3Factory;
         emit UniswapV3Factory(msg.sender, _uniswapV3Factory);
     }
 
+    /**
+     @notice creates an instance of ICHIVisor for specified tokenA/tokenB/fee setting. If needed creates underlying Uniswap V3 pool. AllowToken parameters control whether the ICHIVisor allows one-sided or two-sided liquidity provision
+     @param tokenA tokenA of the Uniswap V3 pool
+     @param allowTokenA flag that indicates whether tokenA is accepted during deposit
+     @param tokenB tokenB of the Uniswap V3 pool
+     @param allowTokenB flag that indicates whether tokenB is accepted during deposit
+     @param fee fee setting of the Uniswap V3 pool
+     @param ichiVisor address of the created ICHIVisor
+     */
     function createICHIVisor(
         address tokenA,
         bool allowTokenA,
@@ -67,38 +83,74 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
         emit ICHIVisorCreated(msg.sender, ichiVisor, token0, allowToken0, token1, allowToken1, fee, visorSet.count());
     }
 
+    /**
+     @notice returns the count of tokens ICHIVisors were created for
+     */
     function tokenCount() external override view returns(uint) {
         return tokenSet.count();
     }
 
+    /**
+     @notice returns token address at the index
+     @param index row to inspect
+     */
     function tokenAtIndex(uint index) external override view returns(address) {
         return tokenSet.keyAtIndex(index);
     }
 
+    /**
+     @notice returns true if given address is for one of the tokens with an ICHIVisor created for
+     @param token address to inspect
+     */
     function isToken(address token) external override view returns(bool) {
         return tokenSet.exists(token);
     }
 
+    /**
+     @notice returns the count of ICHIVisors
+     */
     function ichiVisorsCount() external override view returns (uint256) {
         return visorSet.count();
     }
 
+    /**
+     @notice returns ICHIVisor address at the index
+     @param index row to inspect
+     */
     function ichiVisorAtIndex(uint index) external override view returns(address) {
         return visorSet.keyAtIndex(index);
     }
 
+    /**
+     @notice returns true if given address is an ICHIVisor
+     @param ichiVisor address to inspect
+     */
     function isIchiVisor(address ichiVisor) external override view returns(bool) {
         return visorSet.exists(ichiVisor);
     }
 
+    /**
+     @notice returns the count of ICHIVisors for a given token
+     @param token token address to inspect
+     */
     function tokenIchiVisorCount(address token) external override view returns(uint) {
         return tokens[token].visorSet.count();
     }
 
+    /**
+     @notice returns ICHIVisor address at the index for a given token
+     @param token token address to inspect
+     @param index row to inspect
+     */
     function tokenIchiVisorAtIndex(address token, uint index) external override view returns(address) {
         return tokens[token].visorSet.keyAtIndex(index);
     }
 
+    /**
+     @notice returns true if given address is an ICHIVisor for a given token
+     @param token token address to inspect
+     @param ichiVisor address to inspect
+     */
     function isTokenIchiVisor(address token, address ichiVisor) external override view returns(bool) {
         return tokenSet.exists(token) ? tokens[token].visorSet.exists(ichiVisor) : false;
     }

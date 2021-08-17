@@ -18,10 +18,10 @@ import {LiquidityAmounts} from "@uniswap/v3-periphery/contracts/libraries/Liquid
 
 import {IICHIVisor} from "../interfaces/IICHIVisor.sol";
 
-// @title ICHIVisor
-// @notice A Uniswap V2-like interface with fungible liquidity to Uniswap V3
-// which allows for arbitrary liquidity provision: one-sided, lop-sided, and
-// balanced.
+/**
+ @notice A Uniswap V2-like interface with fungible liquidity to Uniswap V3 
+ which allows for either one-sided or two-sided liquidity provision.
+ */
 contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback, ERC20, Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
@@ -62,8 +62,13 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
 
     uint256 constant public PRECISION = 1e36;
 
-    // @param _pool Uniswap V3 pool for which liquidity is managed
-    // @param _owner Owner of the ICHIVisor
+    /**
+     @notice creates an instance of ICHIVisor based on the pool. allowToken parameters control whether the ICHIVisor allows one-sided or two-sided liquidity provision
+     @param _pool Uniswap V3 pool for which liquidity is managed
+     @param _allowToken0 flag that indicates whether token0 is accepted during deposit
+     @param _allowToken1 flag that indicates whether token1 is accepted during deposit
+     @param _owner Owner of the ICHIVisor
+     */
     constructor(
         address _pool,
         bool _allowToken0,
@@ -88,14 +93,13 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         emit DeployICHIVisor(msg.sender, _pool, _owner);
     }
 
-    // @notice Distributes shares to depositor equal to the token1 value of his
-    // deposit multiplied by the ratio of total liquidity shares issued divided
-    // by the pool's AUM measured in token1 value.
-    // @param deposit0 Amount of token0 transfered from sender to ICHIVisor
-    // @param deposit1 Amount of token0 transfered from sender to ICHIVisor
-    // @param to Address to which liquidity tokens are minted
-    // @return shares Quantity of liquidity tokens minted as a result of deposit
-
+    /**
+     @notice Distributes shares to depositor equal to the token1 value of his deposit multiplied by the ratio of total liquidity shares issued divided by the pool's AUM measured in token1 value. 
+     @param deposit0 Amount of token0 transfered from sender to ICHIVisor
+     @param deposit1 Amount of token0 transfered from sender to ICHIVisor
+     @param to Address to which liquidity tokens are minted
+     @param shares Quantity of liquidity tokens minted as a result of deposit
+     */
     function deposit(
         uint256 deposit0,
         uint256 deposit1,
@@ -142,13 +146,13 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         require(maxTotalSupply == 0 || totalSupply() <= maxTotalSupply, "ICHIVisor.deposit: maxTotalSupply");
     }
 
-    // @notice Redeems shares by sending out a percentage of the ichivisor's
-    // AUM--this percentage is equal to the percentage of total issued shares
-    // represented by the redeeemed shares.
-    // @param shares Number of liquidity tokens to redeem as pool assets
-    // @param to Address to which redeemed pool assets are sent
-    // @return amount0 Amount of token0 redeemed by the submitted liquidity tokens
-    // @return amount1 Amount of token1 redeemed by the submitted liquidity tokens
+    /**
+     @notice Redeems shares by sending out a percentage of the ICHIVisor's AUM - this percentage is equal to the percentage of total issued shares represented by the redeeemed shares.
+     @param shares Number of liquidity tokens to redeem as pool assets
+     @param to Address to which redeemed pool assets are sent
+     @param amount0 Amount of token0 redeemed by the submitted liquidity tokens
+     @param amount1 Amount of token1 redeemed by the submitted liquidity tokens
+     */
     function withdraw(
         uint256 shares,
         address to
@@ -177,19 +181,15 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         emit Withdraw(msg.sender, to, shares, amount0, amount1);
     }
 
-    // @notice Updates ichivisor's LP positions.
-    // @dev The base position is placed first with as much liquidity as
-    // possible and is typically symmetric around the current price. This order
-    // should use up all of one token, leaving some unused quantity of the
-    // other. This unused amount is then placed as a single-sided order.
-    // @param _baseLower The lower tick of the base position
-    // @param _baseUpper The upper tick of the base position
-    // @param _limitLower The lower tick of the limit position
-    // @param _limitUpper The upper tick of the limit position
-    // @param feeRecipient Address of recipient of 10% of earned fees since last rebalance
-    // @param swapQuantity Quantity of tokens to swap; if quantity is positive,
-    // `swapQuantity` token0 are swaped for token1, if negative, `swapQuantity`
-    // token1 is swaped for token0
+    /**
+     @notice Updates ICHIVisor's LP positions.
+     @dev The base position is placed first with as much liquidity as possible and is typically symmetric around the current price. This order should use up all of one token, leaving some unused quantity of the other. This unused amount is then placed as a single-sided order.
+     @param _baseLower The lower tick of the base position
+     @param _baseUpper The upper tick of the base position
+     @param _limitLower The lower tick of the limit position
+     @param _limitUpper The upper tick of the limit position
+     @param swapQuantity Quantity of tokens to swap; if quantity is positive, `swapQuantity` token0 are swaped for token1, if negative, `swapQuantity` token1 is swaped for token0
+     */
     function rebalance(
         int24 _baseLower,
         int24 _baseUpper,
@@ -255,6 +255,15 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         _mintLiquidity(limitLower, limitUpper, limitLiquidity, address(this));
     }
 
+    /**
+     @notice Mint liquidity in Uniswap V3 pool.
+     @param tickLower The lower tick of the liquidity position
+     @param tickUpper The upper tick of the liquidity position
+     @param liquidity Amount of liquidity to mint
+     @param payer Payer account that supplies token0 and token1 tokens for the mint 
+     @param amount0 Used amount of token0
+     @param amount1 Used amount of token1
+     */
     function _mintLiquidity(
         int24 tickLower,
         int24 tickUpper,
@@ -272,6 +281,16 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         }
     }
 
+    /**
+     @notice Burn liquidity in Uniswap V3 pool.
+     @param tickLower The lower tick of the liquidity position
+     @param tickUpper The upper tick of the liquidity position
+     @param liquidity amount of liquidity to burn
+     @param to The account to receive token0 and token1 amounts
+     @param collectAll Flag that indicates whether all token0 and token1 tokens should be collected or only the ones released during this burn
+     @param amount0 released amount of token0
+     @param amount1 released amount of token1
+     */
     function _burnLiquidity(
         int24 tickLower,
         int24 tickUpper,
@@ -292,6 +311,12 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         }
     }
 
+    /**
+     @notice Calculates liquidity amount for the given shares.
+     @param tickLower The lower tick of the liquidity position
+     @param tickUpper The upper tick of the liquidity position
+     @param shares number of shares
+     */
     function _liquidityForShares(
         int24 tickLower,
         int24 tickUpper,
@@ -301,15 +326,29 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         return _uint128Safe(uint256(position).mul(shares).div(totalSupply()));
     }
 
-    function _position(int24 tickLower, int24 tickUpper)
-        internal
-        view
-        returns (uint128 liquidity, uint128 tokensOwed0, uint128 tokensOwed1)
-    {
+    /**
+     @notice Returns information about the liquidity position.
+     @param tickLower The lower tick of the liquidity position
+     @param tickUpper The upper tick of the liquidity position
+     @param liquidity liquidity amount
+     @param tokensOwed0 amount of token0 owed to the owner of the position
+     @param tokensOwed1 amount of token1 owed to the owner of the position
+     */
+    function _position(
+        int24 tickLower, 
+        int24 tickUpper
+    ) internal view returns (uint128 liquidity, uint128 tokensOwed0, uint128 tokensOwed1) {
         bytes32 positionKey = keccak256(abi.encodePacked(address(this), tickLower, tickUpper));
         (liquidity, , , tokensOwed0, tokensOwed1) = IUniswapV3Pool(pool).positions(positionKey);
     }
 
+    /**
+     @notice Callback function for mint
+     @dev this is where the payer transfers required token0 and token1 amounts
+     @param amount0 required amount of token0
+     @param amount1 required amount of token1
+     @param data encoded payer's address
+     */
     function uniswapV3MintCallback(
         uint256 amount0,
         uint256 amount1,
@@ -327,6 +366,13 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         }
     }
 
+    /**
+     @notice Callback function for swap
+     @dev this is where the payer transfers required token0 and token1 amounts
+     @param amount0Delta required amount of token0
+     @param amount1Delta required amount of token1
+     @param data encoded payer's address
+     */
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
@@ -350,8 +396,11 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         }
     }
 
-    // @return total0 Quantity of token0 in both positions and unused in the ICHIVisor
-    // @return total1 Quantity of token1 in both positions and unused in the ICHIVisor
+    /**
+     @notice Calculates total quantity of token0 and token1 in both positions (and unused in the ICHIVisor)
+     @param total0 Quantity of token0 in both positions (and unused in the ICHIVisor)
+     @param total1 Quantity of token1 in both positions (and unused in the ICHIVisor)
+     */
     function getTotalAmounts() public view override returns (uint256 total0, uint256 total1) {
         (, uint256 base0, uint256 base1) = getBasePosition();
         (, uint256 limit0, uint256 limit1) = getLimitPosition();
@@ -359,11 +408,12 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         total1 = IERC20(token1).balanceOf(address(this)).add(base1).add(limit1);
     }
 
-    // @return liquidity Amount of total liquidity in the base position
-    // @return amount0 Estimated amount of token0 that could be collected by
-    // burning the base position
-    // @return amount1 Estimated amount of token1 that could be collected by
-    // burning the base position
+    /**
+     @notice Calculates amount of total liquidity in the base position
+     @param liquidity Amount of total liquidity in the base position
+     @param amount0 Estimated amount of token0 that could be collected by burning the base position
+     @param amount1 Estimated amount of token1 that could be collected by burning the base position
+     */
     function getBasePosition()
         public
         view
@@ -380,11 +430,12 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         liquidity = positionLiquidity;
     }
 
-    // @return liquidity Amount of total liquidity in the limit position
-    // @return amount0 Estimated amount of token0 that could be collected by
-    // burning the limit position
-    // @return amount1 Estimated amount of token1 that could be collected by
-    // burning the limit position
+    /**
+     @notice Calculates amount of total liquidity in the limit position
+     @param liquidity Amount of total liquidity in the base position
+     @param amount0 Estimated amount of token0 that could be collected by burning the limit position
+     @param amount1 Estimated amount of token1 that could be collected by burning the limit position
+     */
     function getLimitPosition()
         public
         view
@@ -401,6 +452,12 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         liquidity = positionLiquidity;
     }
 
+    /**
+     @notice Calculates token0 and token1 amounts for liquidity in a position
+     @param tickLower The lower tick of the liquidity position
+     @param tickUpper The upper tick of the liquidity position
+     @param liquidity Amount of liquidity in the position
+     */
     function _amountsForLiquidity(
         int24 tickLower,
         int24 tickUpper,
@@ -416,6 +473,13 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
             );
     }
 
+    /**
+     @notice Calculates amount of liquidity in a position for given token0 and token1 amounts
+     @param tickLower The lower tick of the liquidity position
+     @param tickUpper The upper tick of the liquidity position
+     @param amount0 token0 amount
+     @param amount1 token1 amount
+     */
     function _liquidityForAmounts(
         int24 tickLower,
         int24 tickUpper,
@@ -433,23 +497,38 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
             );
     }
 
-    // @return tick Uniswap pool's current price tick
+    /**
+     @notice Returns current price tick
+     @param tick Uniswap pool's current price tick
+     */
     function currentTick() public view returns (int24 tick) {
         (, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
     }
 
+    /**
+     @notice uint128Safe function
+     @param x input value
+     */
     function _uint128Safe(uint256 x) internal pure returns (uint128) {
         assert(x <= type(uint128).max);
         return uint128(x);
     }
 
-    // @param _maxTotalSupply The maximum liquidity token supply the contract allows
+    /**
+     @notice Sets the maximum liquidity token supply the contract allows
+     @dev onlyOwner
+     @param _maxTotalSupply The maximum liquidity token supply the contract allows
+     */
     function setMaxTotalSupply(uint256 _maxTotalSupply) external onlyOwner {
         maxTotalSupply = _maxTotalSupply;
     }
 
-    // @param _deposit0Max The maximum amount of token0 allowed in a deposit
-    // @param _deposit1Max The maximum amount of token1 allowed in a deposit
+    /**
+     @notice Sets the maximum token0 and token1 amounts the contract allows in a deposit
+     @dev onlyOwner
+     @param _deposit0Max The maximum amount of token0 allowed in a deposit
+     @param _deposit1Max The maximum amount of token1 allowed in a deposit
+     */
     function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external override onlyOwner {
         deposit0Max = _deposit0Max;
         deposit1Max = _deposit1Max;
