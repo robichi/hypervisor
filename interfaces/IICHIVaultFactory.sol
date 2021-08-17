@@ -2,7 +2,7 @@
 
 pragma solidity 0.7.6;
 
-interface IICHIVisorFactory {
+interface IICHIVaultFactory {
 
     function uniswapV3Factory() external view returns(address);
 
@@ -10,9 +10,9 @@ interface IICHIVisorFactory {
         address sender, 
         address uniswapV3);
 
-    event ICHIVisorCreated(
+    event ICHIVaultCreated(
         address sender, 
-        address ichiVisor, 
+        address ichiVault, 
         address tokenA,
         bool allowTokenA,
         address tokenB,
@@ -20,13 +20,13 @@ interface IICHIVisorFactory {
         uint24 fee,
         uint256 count);    
 
-    function createICHIVisor(
+    function createICHIVault(
             address tokenA,
             bool allowTokenA,
             address tokenB,
             bool allowTokenB,
             uint24 fee
-        ) external returns (address ichiVisor);
+        ) external returns (address ichiVault);
 
     function tokenCount() external view returns(uint);
 
@@ -34,15 +34,15 @@ interface IICHIVisorFactory {
 
     function isToken(address token) external returns(bool);
 
-    function ichiVisorsCount() external view returns (uint256);
+    function ichiVaultsCount() external view returns (uint256);
 
-    function ichiVisorAtIndex(uint index) external view returns(address);
+    function ichiVaultAtIndex(uint index) external view returns(address);
 
-    function isIchiVisor(address ichiVisor) external view returns(bool);
+    function isIchiVault(address ichiVault) external view returns(bool);
 
-    function tokenIchiVisorCount(address token) external view returns(uint);
+    function tokenIchiVaultCount(address token) external view returns(uint);
 
-    function tokenIchiVisorAtIndex(address token, uint index) external view returns(address);
+    function tokenIchiVaultAtIndex(address token, uint index) external view returns(address);
 
-    function isTokenIchiVisor(address token, address ichiVisor) external view returns(bool);
+    function isTokenIchiVault(address token, address ichiVault) external view returns(bool);
 }

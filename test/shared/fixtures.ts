@@ -6,7 +6,7 @@ import {
     UniswapV3Factory,
     SwapRouter,
     NonfungiblePositionManager,
-    ICHIVisorFactory,
+    ICHIVaultFactory,
     MockUniswapV3PoolDeployer
 } from "../../typechain";
 
@@ -53,15 +53,15 @@ async function tokensFixture(): Promise<TokensFixture> {
     return { token0, token1, token2 }
 }
 
-interface ICHIVisorFactoryFixture {
-    ichiVisorFactory: ICHIVisorFactory
+interface ICHIVaultFactoryFixture {
+    ichiVaultFactory: ICHIVaultFactory
 }
 
-async function ichiVisorFactoryFixture(factory: UniswapV3Factory): Promise<ICHIVisorFactoryFixture> {
-    const ichiVisorFactoryFactory = await ethers.getContractFactory('ICHIVisorFactory')
-    const ichiVisorFactory = (await ichiVisorFactoryFactory.deploy(factory.address)) as ICHIVisorFactory
+async function ichiVaultFactoryFixture(factory: UniswapV3Factory): Promise<ICHIVaultFactoryFixture> {
+    const ichiVaultFactoryFactory = await ethers.getContractFactory('ICHIVaultFactory')
+    const ichiVaultFactory = (await ichiVaultFactoryFactory.deploy(factory.address)) as ICHIVaultFactory
     
-    return { ichiVisorFactory }
+    return { ichiVaultFactory }
 }
 
 interface OurFactoryFixture {
@@ -92,12 +92,12 @@ export const fixture: Fixture<allContractsFixture> = async function (): Promise<
     }
 }
 
-type ICHIVisorTestFixture = UniswapV3Fixture & TokensFixture & ICHIVisorFactoryFixture
+type ICHIVaultTestFixture = UniswapV3Fixture & TokensFixture & ICHIVaultFactoryFixture
 
-export const ichiVisorTestFixture: Fixture<ICHIVisorTestFixture> = async function (): Promise<ICHIVisorTestFixture> {
+export const ichiVaultTestFixture: Fixture<ICHIVaultTestFixture> = async function (): Promise<ICHIVaultTestFixture> {
     const { factory, router, nft } = await uniswapV3Fixture()
     const { token0, token1, token2 } = await tokensFixture()
-    const { ichiVisorFactory } = await ichiVisorFactoryFixture(factory)
+    const { ichiVaultFactory } = await ichiVaultFactoryFixture(factory)
 
     return {
         token0,
@@ -106,6 +106,6 @@ export const ichiVisorTestFixture: Fixture<ICHIVisorTestFixture> = async functio
         factory,
         router,
         nft,
-        ichiVisorFactory,
+        ichiVaultFactory,
     }
 }

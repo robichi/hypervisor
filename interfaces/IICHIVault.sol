@@ -2,7 +2,7 @@
 
 pragma solidity 0.7.6;
 
-interface IICHIVisor{
+interface IICHIVault{
 
     function pool() external view returns(address);
     function token0() external view returns(address);
@@ -46,7 +46,7 @@ interface IICHIVisor{
 
     function getTotalAmounts() external view returns (uint256, uint256);
 
-    event DeployICHIVisor(
+    event DeployICHIVault(
         address sender, 
         address _pool, 
         address _owner);

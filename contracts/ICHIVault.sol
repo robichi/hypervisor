@@ -16,13 +16,13 @@ import {TickMath} from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import {FullMath} from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import {LiquidityAmounts} from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 
-import {IICHIVisor} from "../interfaces/IICHIVisor.sol";
+import {IICHIVault} from "../interfaces/IICHIVault.sol";
 
 /**
  @notice A Uniswap V2-like interface with fungible liquidity to Uniswap V3 
  which allows for either one-sided or two-sided liquidity provision.
  */
-contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback, ERC20, Ownable {
+contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback, ERC20, Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
     using SignedSafeMath for int256;
@@ -65,11 +65,11 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
     uint256 constant public PRECISION = 1e36;
 
     /**
-     @notice creates an instance of ICHIVisor based on the pool. allowToken parameters control whether the ICHIVisor allows one-sided or two-sided liquidity provision
+     @notice creates an instance of ICHIVault based on the pool. allowToken parameters control whether the ICHIVault allows one-sided or two-sided liquidity provision
      @param _pool Uniswap V3 pool for which liquidity is managed
      @param _allowToken0 flag that indicates whether token0 is accepted during deposit
      @param _allowToken1 flag that indicates whether token1 is accepted during deposit
-     @param _owner Owner of the ICHIVisor
+     @param _owner Owner of the ICHIVault
      */
     constructor(
         address _pool,
@@ -92,13 +92,13 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         maxTotalSupply = 0; // no cap
         deposit0Max = uint256(-1); // max uint256
         deposit1Max = uint256(-1); // max uint256
-        emit DeployICHIVisor(msg.sender, _pool, _owner);
+        emit DeployICHIVault(msg.sender, _pool, _owner);
     }
 
     /**
      @notice Distributes shares to depositor equal to the token1 value of his deposit multiplied by the ratio of total liquidity shares issued divided by the pool's AUM measured in token1 value. 
-     @param deposit0 Amount of token0 transfered from sender to ICHIVisor
-     @param deposit1 Amount of token0 transfered from sender to ICHIVisor
+     @param deposit0 Amount of token0 transfered from sender to ICHIVault
+     @param deposit1 Amount of token0 transfered from sender to ICHIVault
      @param to Address to which liquidity tokens are minted
      @param shares Quantity of liquidity tokens minted as a result of deposit
      */
@@ -107,11 +107,11 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         uint256 deposit1,
         address to
     ) external override returns (uint256 shares) {
-        require(allowToken0 || deposit0 == 0, 'ICHIVisor.deposit: token0 prohibited by ICHIVisor policy');
-        require(allowToken1 || deposit1 == 0, 'ICHIVisor.deposit: token1 prohibited by ICHIVisor policy');
-        require(deposit0 > 0 || deposit1 > 0, "ICHIVisor.deposit: deposits must be nonzero");
-        require(deposit0 < deposit0Max && deposit1 < deposit1Max, "ICHIVisor.deposit: deposits must be less than maximum amounts");
-        require(to != NULL_ADDRESS && to != address(this), "ICHIVisor.deposit: to");
+        require(allowToken0 || deposit0 == 0, 'ICHIVault.deposit: token0 prohibited by ICHIVault policy');
+        require(allowToken1 || deposit1 == 0, 'ICHIVault.deposit: token1 prohibited by ICHIVault policy');
+        require(deposit0 > 0 || deposit1 > 0, "ICHIVault.deposit: deposits must be nonzero");
+        require(deposit0 < deposit0Max && deposit1 < deposit1Max, "ICHIVault.deposit: deposits must be less than maximum amounts");
+        require(to != NULL_ADDRESS && to != address(this), "ICHIVault.deposit: to");
 
         // update fees for inclusion in total pool amounts
         (uint128 baseLiquidity,,) = _position(baseLower, baseUpper);
@@ -145,11 +145,11 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         _mint(to, shares);
         emit Deposit(msg.sender, to, shares, deposit0, deposit1);
         // Check total supply cap not exceeded. A value of 0 means no limit.
-        require(maxTotalSupply == 0 || totalSupply() <= maxTotalSupply, "ICHIVisor.deposit: maxTotalSupply");
+        require(maxTotalSupply == 0 || totalSupply() <= maxTotalSupply, "ICHIVault.deposit: maxTotalSupply");
     }
 
     /**
-     @notice Redeems shares by sending out a percentage of the ICHIVisor's AUM - this percentage is equal to the percentage of total issued shares represented by the redeeemed shares.
+     @notice Redeems shares by sending out a percentage of the ICHIVault's AUM - this percentage is equal to the percentage of total issued shares represented by the redeeemed shares.
      @param shares Number of liquidity tokens to redeem as pool assets
      @param to Address to which redeemed pool assets are sent
      @param amount0 Amount of token0 redeemed by the submitted liquidity tokens
@@ -159,8 +159,8 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         uint256 shares,
         address to
     ) external override returns (uint256 amount0, uint256 amount1) {
-        require(shares > 0, "ICHIVisor.withdraw: shares");
-        require(to != NULL_ADDRESS, "ICHIVisor.withdraw: to");
+        require(shares > 0, "ICHIVault.withdraw: shares");
+        require(to != NULL_ADDRESS, "ICHIVault.withdraw: to");
 
         // Withdraw liquidity from Uniswap pool
         (uint256 base0, uint256 base1) =
@@ -184,7 +184,7 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
     }
 
     /**
-     @notice Updates ICHIVisor's LP positions.
+     @notice Updates ICHIVault's LP positions.
      @dev The base position is placed first with as much liquidity as possible and is typically symmetric around the current price. This order should use up all of one token, leaving some unused quantity of the other. This unused amount is then placed as a single-sided order.
      @param _baseLower The lower tick of the base position
      @param _baseUpper The upper tick of the base position
@@ -200,9 +200,9 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         int256 swapQuantity
     ) external override onlyOwner {
         require(_baseLower < _baseUpper && _baseLower % tickSpacing == 0 && _baseUpper % tickSpacing == 0,
-                "ICHIVisor.rebalance: base position invalid");
+                "ICHIVault.rebalance: base position invalid");
         require(_limitLower < _limitUpper && _limitLower % tickSpacing == 0 && _limitUpper % tickSpacing == 0,
-                "ICHIVisor.rebalance: limit position invalid");
+                "ICHIVault.rebalance: limit position invalid");
 
         // TODO: Can this block be removed? 
         // update fees
@@ -399,9 +399,9 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
     }
 
     /**
-     @notice Calculates total quantity of token0 and token1 in both positions (and unused in the ICHIVisor)
-     @param total0 Quantity of token0 in both positions (and unused in the ICHIVisor)
-     @param total1 Quantity of token1 in both positions (and unused in the ICHIVisor)
+     @notice Calculates total quantity of token0 and token1 in both positions (and unused in the ICHIVault)
+     @param total0 Quantity of token0 in both positions (and unused in the ICHIVault)
+     @param total1 Quantity of token1 in both positions (and unused in the ICHIVault)
      */
     function getTotalAmounts() public view override returns (uint256 total0, uint256 total1) {
         (, uint256 base0, uint256 base1) = getBasePosition();
