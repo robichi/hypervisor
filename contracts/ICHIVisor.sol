@@ -27,13 +27,13 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
     using SafeMath for uint256;
     using SignedSafeMath for int256;
 
-    address public override pool;
+    address public override immutable pool;
     address public override immutable token0;
     address public override immutable token1;
     bool public override immutable allowToken0;
     bool public override immutable allowToken1;
     uint24 public override immutable fee;
-    int24 public override tickSpacing;
+    int24 public override immutable tickSpacing;
 
     int24 public override baseLower;
     int24 public override baseUpper;
@@ -73,12 +73,12 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         ERC20("xICHI Liquidity", "xICHI")
     {
         pool = _pool;
-        token0 = IUniswapV3Pool(pool).token0();
-        token1 = IUniswapV3Pool(pool).token1();
-        fee = IUniswapV3Pool(pool).fee();
+        token0 = IUniswapV3Pool(_pool).token0();
+        token1 = IUniswapV3Pool(_pool).token1();
+        fee = IUniswapV3Pool(_pool).fee();
         allowToken0 = _allowToken0;
         allowToken1 = _allowToken1;
-        tickSpacing = IUniswapV3Pool(pool).tickSpacing();
+        tickSpacing = IUniswapV3Pool(_pool).tickSpacing();
 
         transferOwnership(_owner);
 
@@ -95,8 +95,6 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
     // @param deposit1 Amount of token0 transfered from sender to ICHIVisor
     // @param to Address to which liquidity tokens are minted
     // @return shares Quantity of liquidity tokens minted as a result of deposit
-
-    // TODO: Consider onlyOwner to block direction user interactions
 
     function deposit(
         uint256 deposit0,
@@ -149,13 +147,11 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
     // represented by the redeeemed shares.
     // @param shares Number of liquidity tokens to redeem as pool assets
     // @param to Address to which redeemed pool assets are sent
-    // @param from Address from which liquidity tokens are sent
     // @return amount0 Amount of token0 redeemed by the submitted liquidity tokens
     // @return amount1 Amount of token1 redeemed by the submitted liquidity tokens
     function withdraw(
         uint256 shares,
-        address to,
-        address from
+        address to
     ) external override returns (uint256 amount0, uint256 amount1) {
         require(shares > 0, "ICHIVisor.withdraw: shares");
         require(to != address(0), "ICHIVisor.withdraw: to");
@@ -176,10 +172,9 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         amount0 = base0.add(limit0).add(unusedAmount0);
         amount1 = base1.add(limit1).add(unusedAmount1);
     
-        require(from == msg.sender /* || IUniversalVault(from).owner() == msg.sender */, "Sender must own the tokens");
-        _burn(from, shares);
+        _burn(msg.sender, shares);
 
-        emit Withdraw(from, to, shares, amount0, amount1);
+        emit Withdraw(msg.sender, to, shares, amount0, amount1);
     }
 
     // @notice Updates ichivisor's LP positions.
@@ -200,7 +195,6 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         int24 _baseUpper,
         int24 _limitLower,
         int24 _limitUpper,
-        address /* feeRecipient */,
         int256 swapQuantity
     ) external override onlyOwner {
         require(_baseLower < _baseUpper && _baseLower % tickSpacing == 0 && _baseUpper % tickSpacing == 0,
@@ -219,27 +213,13 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
             IUniswapV3Pool(pool).burn(limitLower, limitUpper, 0);
         }
 
-        // Withdraw all liquidity and collect all fees from Uniswap pool
-        // (, uint256 feesLimit0, uint256 feesLimit1) = _position(baseLower, baseUpper);
-        // (, uint256 feesBase0, uint256 feesBase1)  = _position(limitLower, limitUpper);
-
-        // uint256 fees0 = feesBase0.add(feesLimit0);
-        // uint256 fees1 = feesBase1.add(feesLimit1);
         _burnLiquidity(baseLower, baseUpper, baseLiquidity, address(this), true);
         _burnLiquidity(limitLower, limitUpper, limitLiquidity, address(this), true);
-
-        // transfer fees (mod)
-        /*
-        if(fees0 > 0) token0.safeTransfer(feeRecipient, fees0.div(feeDivisor));
-        if(fees1 > 0) token1.safeTransfer(feeRecipient, fees1.div(feeDivisor));
-        */
 
         emit Rebalance(
             currentTick(),
             IERC20(token0).balanceOf(address(this)),
             IERC20(token1).balanceOf(address(this)),
-            // fees0,
-            // fees1,
             totalSupply()
         );
 

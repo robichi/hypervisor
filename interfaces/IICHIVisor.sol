@@ -29,7 +29,6 @@ interface IICHIVisor{
 
     function withdraw(
         uint256,
-        address,
         address
     ) external returns (uint256, uint256);
 
@@ -38,7 +37,6 @@ interface IICHIVisor{
         int24 _baseUpper,
         int24 _limitLower,
         int24 _limitUpper,
-        address feeRecipient,
         int256 swapQuantity
     ) external;
 
