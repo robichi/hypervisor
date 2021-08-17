@@ -86,7 +86,7 @@ describe('Hypervisors on Mainnet Fork', () => {
         console.log("usdt: " + usdtBalance.toString() + " weth: " + weth9Balance.toString() + " usdc: " + usdcBalance.toString())
 
         await ethUsdtHypervisor.connect(whale).deposit(100000000, 1000, owner.address)
-        await ethUsdtHypervisor.rebalance(19140, 19740, 19440, 19500, owner.address, -500)
+        await ethUsdtHypervisor.rebalance(19140, 19740, 19440, 19500, -500)
 
         await usdc.connect(whale).approve(usdcEthHypervisor.address, ethers.utils.parseEther('1000000'))
         await weth9.connect(whale).approve(usdcEthHypervisor.address, ethers.utils.parseEther('1000000'))

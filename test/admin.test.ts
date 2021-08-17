@@ -99,7 +99,7 @@ describe('Access Control Checks', () => {
     it('ICHIVisor', async () => {
         let msg1 = "Ownable: caller is not the owner";
 
-        await truffleAssert.reverts(ichiVisor.connect(alice).rebalance(-1800, 1800, -600, 0, alice.address, 0), msg1);
+        await truffleAssert.reverts(ichiVisor.connect(alice).rebalance(-1800, 1800, -600, 0, 0), msg1);
         await truffleAssert.reverts(ichiVisor.connect(alice).setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000')), msg1);
 
     })

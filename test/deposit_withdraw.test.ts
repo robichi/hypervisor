@@ -125,7 +125,7 @@ describe('ICHIVisor General Functionality', () => {
         expect(alice_liq_balance).to.equal(ethers.utils.parseEther('2000'))
 
         // liquidity positions will only be created once rebalance is called
-        await ichiVisor.rebalance(-1800, 1800, -600, 0, bob.address, 0)
+        await ichiVisor.rebalance(-1800, 1800, -600, 0, 0)
         token0hypervisor = await token0.balanceOf(ichiVisor.address)
         token1hypervisor = await token1.balanceOf(ichiVisor.address)
         // all of the hypervisor assets should have been deployed in v3 lp positions
@@ -173,7 +173,7 @@ describe('ICHIVisor General Functionality', () => {
         expect(fees0).to.equal(0)
         expect(fees1).to.equal(0)
         let rebalanceSwapAmount = ethers.utils.parseEther('4000')
-        await ichiVisor.rebalance(-1800, 1920, limitLower, limitUpper, bob.address, rebalanceSwapAmount)
+        await ichiVisor.rebalance(-1800, 1920, limitLower, limitUpper, rebalanceSwapAmount)
         tokenAmounts = await ichiVisor.getTotalAmounts()
         let token0AfterRebalanceSwap = tokenAmounts[0]
         expect(token0BeforeRebalanceSwap.sub(token0AfterRebalanceSwap).sub(rebalanceSwapAmount).abs()).to.be.lt(ethers.utils.parseEther('1'))
@@ -196,7 +196,7 @@ describe('ICHIVisor General Functionality', () => {
         expect(basePosition[0]).to.be.gt(0)
         expect(limitPosition[0]).to.be.gt(0)
 
-        await ichiVisor.rebalance(-1800, 1920, limitLower, limitUpper, bob.address, rebalanceSwapAmount.mul(-1))
+        await ichiVisor.rebalance(-1800, 1920, limitLower, limitUpper, rebalanceSwapAmount.mul(-1))
         tokenAmounts = await ichiVisor.getTotalAmounts()
         let token0AfterSecondRebalance = tokenAmounts[0]
         let token1AfterSecondRebalance = tokenAmounts[1]
@@ -205,7 +205,7 @@ describe('ICHIVisor General Functionality', () => {
 
         // test withdrawal of liquidity
         alice_liq_balance = await ichiVisor.balanceOf(alice.address)
-        await ichiVisor.connect(alice).withdraw(alice_liq_balance, alice.address, alice.address)
+        await ichiVisor.connect(alice).withdraw(alice_liq_balance, alice.address)
         tokenAmounts = await ichiVisor.getTotalAmounts()
         // verify that all liquidity has been removed from the pool
         expect(tokenAmounts[0]).to.equal(0)
@@ -236,7 +236,7 @@ describe('ICHIVisor General Functionality', () => {
         expect(alice_liq_balance).to.equal(ethers.utils.parseEther('2000'))
 
         // liquidity positions will only be created once rebalance is called
-        await ichiVisor.rebalance(-120, 120, -60, 0, bob.address, 0)
+        await ichiVisor.rebalance(-120, 120, -60, 0, 0)
         token0hypervisor = await token0.balanceOf(ichiVisor.address)
         token1hypervisor = await token1.balanceOf(ichiVisor.address)
         expect(token0hypervisor).to.equal(0)
@@ -276,7 +276,7 @@ describe('ICHIVisor General Functionality', () => {
         let fees1 = await token1.balanceOf(bob.address)
         expect(fees0).to.equal(0)
         expect(fees1).to.equal(0)
-        await ichiVisor.rebalance(-1800, 1800, limitLower, limitUpper, bob.address, 0)
+        await ichiVisor.rebalance(-1800, 1800, limitLower, limitUpper, 0)
         token0hypervisor = await token0.balanceOf(ichiVisor.address)
         token1hypervisor = await token1.balanceOf(ichiVisor.address)
         expect(token0hypervisor).to.equal(0)
@@ -313,7 +313,7 @@ describe('ICHIVisor General Functionality', () => {
         expect(currentTick).to.equal(200)
         limitUpper = 180
         limitLower = 0
-        await ichiVisor.rebalance(-1800, 1800, limitLower, limitUpper, bob.address, 0)
+        await ichiVisor.rebalance(-1800, 1800, limitLower, limitUpper, 0)
         token0hypervisor = await token0.balanceOf(ichiVisor.address)
         token1hypervisor = await token1.balanceOf(ichiVisor.address)
         expect(token0hypervisor).to.equal(0)
@@ -406,7 +406,7 @@ describe('ICHIVisor General Functionality', () => {
         expect(user4token1Amount.toString()).to.be.equal("0")
 
         // rebalance
-        await ichiVisor.rebalance(-120, 120, 0, 60, bob.address, 0)
+        await ichiVisor.rebalance(-120, 120, 0, 60, 0)
 
         // withdraw
         const user0_liq_balance = await ichiVisor.balanceOf(user0.address)
@@ -415,11 +415,11 @@ describe('ICHIVisor General Functionality', () => {
         const user3_liq_balance = await ichiVisor.balanceOf(user3.address)
         const user4_liq_balance = await ichiVisor.balanceOf(user4.address)
 
-        await ichiVisor.connect(user0).withdraw(user0_liq_balance, user0.address, user0.address)
-        await ichiVisor.connect(user1).withdraw(user1_liq_balance, user1.address, user1.address)
-        await ichiVisor.connect(user2).withdraw(user2_liq_balance, user2.address, user2.address)
-        await ichiVisor.connect(user3).withdraw(user3_liq_balance, user3.address, user3.address)
-        await ichiVisor.connect(user4).withdraw(user4_liq_balance, user4.address, user4.address)
+        await ichiVisor.connect(user0).withdraw(user0_liq_balance, user0.address)
+        await ichiVisor.connect(user1).withdraw(user1_liq_balance, user1.address)
+        await ichiVisor.connect(user2).withdraw(user2_liq_balance, user2.address)
+        await ichiVisor.connect(user3).withdraw(user3_liq_balance, user3.address)
+        await ichiVisor.connect(user4).withdraw(user4_liq_balance, user4.address)
 
         user0token0Amount = await token0.balanceOf(user0.address)
         user0token1Amount = await token1.balanceOf(user0.address)
@@ -460,7 +460,7 @@ describe('ICHIVisor General Functionality', () => {
         await ichiVisor.connect(alice).deposit(smallTokenAmount, smallTokenAmount, alice.address)
         alice_liq_balance = await ichiVisor.balanceOf(alice.address)
         expect(alice_liq_balance).to.equal(ethers.utils.parseEther('2000'))
-        await ichiVisor.connect(alice).withdraw(alice_liq_balance, alice.address, alice.address)
+        await ichiVisor.connect(alice).withdraw(alice_liq_balance, alice.address)
         let tokenAmounts = await ichiVisor.getTotalAmounts()
         // verify that all liquidity has been removed from the pool
         expect(tokenAmounts[0]).to.equal(0)
@@ -468,7 +468,7 @@ describe('ICHIVisor General Functionality', () => {
 
         await ichiVisor.connect(alice).deposit(smallTokenAmount, smallTokenAmount, alice.address)
 
-        await ichiVisor.rebalance(-120, 120, 0, 60, bob.address, 0)
+        await ichiVisor.rebalance(-120, 120, 0, 60, 0)
 
         let tokenAmount = smallTokenAmount
 
@@ -490,7 +490,7 @@ describe('ICHIVisor General Functionality', () => {
         expect(tokenAmounts[0]).to.be.lt(ethers.utils.parseEther('2000').add(15))
         expect(tokenAmounts[1]).to.be.lt(ethers.utils.parseEther('2000').add(15))
 
-        await ichiVisor.connect(user0).withdraw(user0_liq_balance, user0.address, user0.address)
+        await ichiVisor.connect(user0).withdraw(user0_liq_balance, user0.address)
         token0Balance = await token0.balanceOf(user0.address)
         token1Balance = await token1.balanceOf(user0.address)
         expect(token0Balance).to.equal(smallTokenAmount)
@@ -585,7 +585,7 @@ describe('ETHUSDT ICHIVisor Test', () => {
         expect(user2LiquidityBalance).to.be.gt(Math.round(expectedValue*0.999))
         expect(user2LiquidityBalance).to.be.lt(Math.round(expectedValue*1.001))
 
-        await ichiVisor.connect(user2).withdraw(user2LiquidityBalance, user2.address, user2.address)
+        await ichiVisor.connect(user2).withdraw(user2LiquidityBalance, user2.address)
 
         let user2ethBalance = await token0.balanceOf(user2.address)
         let user2usdtBalance = await token1.balanceOf(user2.address)
@@ -603,7 +603,7 @@ describe('ETHUSDT ICHIVisor Test', () => {
         expect(user3LiquidityBalance).to.be.gt(1249500000)
         expect(user3LiquidityBalance).to.be.lt(1250010000)
 
-        await ichiVisor.connect(user3).withdraw(user3LiquidityBalance, user3.address, user3.address)
+        await ichiVisor.connect(user3).withdraw(user3LiquidityBalance, user3.address)
 
         let user3ethBalance = await token0.balanceOf(user3.address)
         let user3usdtBalance = await token1.balanceOf(user3.address)
@@ -622,7 +622,7 @@ describe('ETHUSDT ICHIVisor Test', () => {
         expect(user4LiquidityBalance).to.be.gt(Math.round(singleSidedUSDTAmount*0.999))
         expect(user4LiquidityBalance).to.be.lt(Math.round(singleSidedUSDTAmount*1.001))
 
-        await ichiVisor.connect(user4).withdraw(user4LiquidityBalance, user4.address, user4.address)
+        await ichiVisor.connect(user4).withdraw(user4LiquidityBalance, user4.address)
 
         let user4ethBalance = await token0.balanceOf(user4.address)
         let user4usdtBalance = await token1.balanceOf(user4.address)
