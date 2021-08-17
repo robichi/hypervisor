@@ -5,7 +5,9 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "bash ./scripts/test.sh",
-    "test:admin": "bash ./scripts/test-admin.sh",
+    "test:mainnet": "bash ./scripts/test-mainnet.sh",
+    "test:general": "bash ./scripts/test-general.sh",
+    "test:deposit-withdraw": "bash ./scripts/test-deposit-withdraw.sh",
     "flatten": "bash ./scripts/flatten.sh",
     "prettier": "prettier --write contracts/*.sol",
     "lint": "solhint contracts/*.sol"

@@ -27,6 +27,8 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
     using SafeMath for uint256;
     using SignedSafeMath for int256;
 
+    address constant NULL_ADDRESS = address(0);
+
     address public override immutable pool;
     address public override immutable token0;
     address public override immutable token1;
@@ -109,7 +111,7 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         require(allowToken1 || deposit1 == 0, 'ICHIVisor.deposit: token1 prohibited by ICHIVisor policy');
         require(deposit0 > 0 || deposit1 > 0, "ICHIVisor.deposit: deposits must be nonzero");
         require(deposit0 < deposit0Max && deposit1 < deposit1Max, "ICHIVisor.deposit: deposits must be less than maximum amounts");
-        require(to != address(0) && to != address(this), "ICHIVisor.deposit: to");
+        require(to != NULL_ADDRESS && to != address(this), "ICHIVisor.deposit: to");
 
         // update fees for inclusion in total pool amounts
         (uint128 baseLiquidity,,) = _position(baseLower, baseUpper);
@@ -158,7 +160,7 @@ contract ICHIVisor is IICHIVisor, IUniswapV3MintCallback, IUniswapV3SwapCallback
         address to
     ) external override returns (uint256 amount0, uint256 amount1) {
         require(shares > 0, "ICHIVisor.withdraw: shares");
-        require(to != address(0), "ICHIVisor.withdraw: to");
+        require(to != NULL_ADDRESS, "ICHIVisor.withdraw: to");
 
         // Withdraw liquidity from Uniswap pool
         (uint256 base0, uint256 base1) =

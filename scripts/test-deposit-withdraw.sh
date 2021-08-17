@@ -4,4 +4,4 @@ if [ ! -d "$(pwd)/artifacts" ]; then
   hardhat compile
 fi
 
-hardhat test --network hardhat test/admin.test.ts
+hardhat test --network hardhat test/deposit_withdraw.test.ts

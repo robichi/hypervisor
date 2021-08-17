@@ -4,6 +4,7 @@ import chai from 'chai'
 import { expect } from 'chai'
 import { fixture, ichiVisorTestFixture } from "./shared/fixtures"
 import { solidity } from "ethereum-waffle"
+const truffleAssert = require('truffle-assertions');
 
 chai.use(solidity)
 
@@ -91,14 +92,29 @@ describe('ICHIVisor General Functionality', () => {
         
     })
 
-    it('multiple deposits and total withdrawal', async () => {
-        // mint tokens to alice
-        await token0.mint(alice.address, largeTokenAmount)
-        await token1.mint(alice.address, largeTokenAmount)
+    function msg(text: string) {
+        return "VM Exception while processing transaction: reverted with reason string '" + text + "'";
+    }
 
-        // alice approves the ICHIVisor to transfer her tokens
+    it('multiple deposits and total withdrawal', async () => {
+        let msg1 = "allowance insufficient",
+            msg2 = "underflow balance sender",
+            msg3 = "insufficient balance",
+            msg4 = "VM Exception while processing transaction: revert with reason \"LS\"";
+
+        await truffleAssert.reverts(
+            ichiVisor.connect(alice).deposit(ethers.utils.parseEther('4000'), ethers.utils.parseEther('4000'), alice.address), msg(msg1));
+
+            // alice approves the ICHIVisor to transfer her tokens
         await token0.connect(alice).approve(ichiVisor.address, largeTokenAmount)
         await token1.connect(alice).approve(ichiVisor.address, largeTokenAmount)
+
+        await truffleAssert.reverts(
+            ichiVisor.connect(alice).deposit(ethers.utils.parseEther('4000'), ethers.utils.parseEther('4000'), alice.address), msg(msg2));
+
+            // mint tokens to alice
+        await token0.mint(alice.address, largeTokenAmount)
+        await token1.mint(alice.address, largeTokenAmount)
 
         // alice should start with 0 ICHIVisor tokens
         let alice_liq_balance = await ichiVisor.balanceOf(alice.address)
@@ -112,6 +128,10 @@ describe('ICHIVisor General Functionality', () => {
         // expect alice's deposit smaller than deposit maximums to be accepted
         await ichiVisor.connect(alice).deposit(smallTokenAmount, smallTokenAmount, alice.address)
 
+        // should fail with insufficient funds message
+        await truffleAssert.reverts(
+            ichiVisor.connect(alice).withdraw(ethers.utils.parseEther('40000'), alice.address), msg(msg3));
+
         let token0hypervisor = await token0.balanceOf(ichiVisor.address)
         let token1hypervisor = await token1.balanceOf(ichiVisor.address)
         // check that all the tokens alice depostied ended up in the hypervisor
@@ -119,6 +139,7 @@ describe('ICHIVisor General Functionality', () => {
         expect(token1hypervisor).to.equal(smallTokenAmount)
 
         alice_liq_balance = await ichiVisor.balanceOf(alice.address)
+        //console.log(alice_liq_balance.toString())
 
         // check that alice has been awarded liquidity tokens in ICHIVisor equal the
         // quantity of tokens deposited since their price is the same
@@ -126,6 +147,12 @@ describe('ICHIVisor General Functionality', () => {
 
         // liquidity positions will only be created once rebalance is called
         await ichiVisor.rebalance(-1800, 1800, -600, 0, 0)
+ 
+        //alice_liq_balance = await ichiVisor.balanceOf(alice.address)
+        //console.log(alice_liq_balance.toString())
+        await truffleAssert.reverts(
+            ichiVisor.connect(alice).withdraw(ethers.utils.parseEther('40000'), alice.address), msg4); 
+ 
         token0hypervisor = await token0.balanceOf(ichiVisor.address)
         token1hypervisor = await token1.balanceOf(ichiVisor.address)
         // all of the hypervisor assets should have been deployed in v3 lp positions

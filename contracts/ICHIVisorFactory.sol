@@ -75,8 +75,8 @@ contract ICHIVisorFactory is IICHIVisorFactory, Ownable {
 
         getICHIVisor[token0][token1][fee][allowToken0][allowToken1] = ichiVisor;
         getICHIVisor[token1][token0][fee][allowToken1][allowToken0] = ichiVisor; // populate mapping in the reverse direction
-        visorSet.insert(ichiVisor, 'ICHIVisorFactory.createICHIVisor: ICHIVisor already exists');
         // should not be possible for these inserts to fail
+        visorSet.insert(ichiVisor, 'ICHIVisorFactory.createICHIVisor: (500) ICHIVisor already exists');
         tokens[token0].visorSet.insert(ichiVisor, 'ICHIVisorFactory.createICHIVisor:: (500) token0 collision');
         tokens[token1].visorSet.insert(ichiVisor, 'ICHIVisorFactory.createICHIVisor:: (500) token1 collision');
 

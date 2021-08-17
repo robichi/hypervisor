@@ -101,6 +101,7 @@ describe('Access Control Checks', () => {
 
         await truffleAssert.reverts(ichiVisor.connect(alice).rebalance(-1800, 1800, -600, 0, 0), msg1);
         await truffleAssert.reverts(ichiVisor.connect(alice).setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000')), msg1);
+        await truffleAssert.reverts(ichiVisor.connect(alice).setMaxTotalSupply(ethers.utils.parseEther('100000')), msg1);
 
     })
 
@@ -182,11 +183,17 @@ describe('Input Validation Checks', () => {
 
     it('ICHIVisor - deposit', async () => {
         let msg1 = "ICHIVisor.deposit: token0 prohibited by ICHIVisor policy",
-            msg2 = "ICHIVisor.deposit: token1 prohibited by ICHIVisor policy";
+            msg2 = "ICHIVisor.deposit: token1 prohibited by ICHIVisor policy",
+            msg3 = "ICHIVisor.deposit: deposits must be nonzero",
+            msg4 = "ICHIVisor.deposit: deposits must be less than maximum amounts",
+            msg5 = "ICHIVisor.deposit: to",
+            msg6 = "ICHIVisor.deposit: maxTotalSupply";
+
 
         await ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, true, token1.address, false, FeeAmount.HIGH)
         await ichiVisorFactory.connect(wallet).createICHIVisor(token0.address, false, token1.address, true, FeeAmount.LOW)
 
+        // check allowToken policy
         let ichiVisorAddress = await ichiVisorFactory.getICHIVisor(token0.address, token1.address, FeeAmount.HIGH, true, false);
         ichiVisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
 
@@ -198,6 +205,99 @@ describe('Input Validation Checks', () => {
 
         await truffleAssert.reverts(
             ichiVisor.deposit(smallTokenAmount, ethers.utils.parseEther('4000'), alice.address), msg1);
+    
+        // check deposit values
+        ichiVisorAddress = await ichiVisorFactory.getICHIVisor(token0.address, token1.address, FeeAmount.HIGH, true, false);
+        ichiVisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
+        await truffleAssert.reverts(
+            ichiVisor.deposit(0, 0, alice.address), msg3);
+
+        ichiVisorAddress = await ichiVisorFactory.getICHIVisor(token0.address, token1.address, FeeAmount.LOW, false, true);
+        ichiVisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
+        await truffleAssert.reverts(
+            ichiVisor.deposit(0, 0, alice.address), msg3);
+
+        // check against max deposit amounts
+        ichiVisorAddress = await ichiVisorFactory.getICHIVisor(token0.address, token1.address, FeeAmount.MEDIUM, true, true);
+        ichiVisor = (await ethers.getContractAt('ICHIVisor', ichiVisorAddress)) as ICHIVisor
+        await truffleAssert.reverts(
+            ichiVisor.deposit(ethers.utils.parseEther('200000'), ethers.utils.parseEther('4000'), alice.address), msg4);
+        await truffleAssert.reverts(
+            ichiVisor.deposit(ethers.utils.parseEther('4000'), ethers.utils.parseEther('200000'), alice.address), msg4);
+    
+        //check against max total supply
+        await ichiVisor.connect(wallet).setMaxTotalSupply(ethers.utils.parseEther('100'))
+        // alice approves the ICHIVisor to transfer her tokens
+        await token0.connect(alice).approve(ichiVisor.address, largeTokenAmount)
+        await token1.connect(alice).approve(ichiVisor.address, largeTokenAmount)
+        // mint tokens to alice
+        await token0.mint(alice.address, largeTokenAmount)
+        await token1.mint(alice.address, largeTokenAmount)
+
+        await truffleAssert.reverts(
+            ichiVisor.connect(alice).deposit(ethers.utils.parseEther('4000'), ethers.utils.parseEther('4000'), alice.address), msg6);
+        await ichiVisor.connect(wallet).setMaxTotalSupply(0)
+
+        //check 'to' address
+        await truffleAssert.reverts(
+            ichiVisor.connect(alice).deposit(ethers.utils.parseEther('4000'), ethers.utils.parseEther('4000'), NULL_ADDRESS), msg5);
+        await truffleAssert.reverts(
+            ichiVisor.connect(alice).deposit(ethers.utils.parseEther('4000'), ethers.utils.parseEther('4000'), ichiVisorAddress), msg5);
+    
+    })
+
+    it('ICHIVisor - withdraw', async () => {
+        let msg1 = "ICHIVisor.withdraw: to",
+            msg2 = "ICHIVisor.withdraw: shares";
+
+        // alice approves the ICHIVisor to transfer her tokens
+        await token0.connect(alice).approve(ichiVisor.address, largeTokenAmount)
+        await token1.connect(alice).approve(ichiVisor.address, largeTokenAmount)
+        // mint tokens to alice
+        await token0.mint(alice.address, largeTokenAmount)
+        await token1.mint(alice.address, largeTokenAmount)
+
+        await ichiVisor.connect(alice).deposit(ethers.utils.parseEther('4000'), ethers.utils.parseEther('4000'), alice.address);
+
+        //check 'to' address
+        await truffleAssert.reverts(
+            ichiVisor.connect(alice).withdraw(ethers.utils.parseEther('4000'), NULL_ADDRESS), msg1);
+        //check shares
+        await truffleAssert.reverts(
+            ichiVisor.connect(alice).withdraw(0, alice.address), msg2);
+        
+    })
+
+    it('ICHIVisor - rebalance', async () => {
+        let msg1 = "ICHIVisor.rebalance: base position invalid",
+            msg2 = "ICHIVisor.rebalance: limit position invalid";
+
+        // alice approves the ICHIVisor to transfer her tokens
+        await token0.connect(alice).approve(ichiVisor.address, largeTokenAmount)
+        await token1.connect(alice).approve(ichiVisor.address, largeTokenAmount)
+        // mint tokens to alice
+        await token0.mint(alice.address, largeTokenAmount)
+        await token1.mint(alice.address, largeTokenAmount)
+
+        let tickSpacing = await ichiVisor.tickSpacing();
+        // console.log(tickSpacing.toString());
+
+        await ichiVisor.connect(alice).deposit(ethers.utils.parseEther('4000'), ethers.utils.parseEther('4000'), alice.address);
+
+        let rebalanceSwapAmount = ethers.utils.parseEther('4000')
+        await truffleAssert.reverts(
+            ichiVisor.connect(wallet).rebalance(1800, 1000, 60, 540, rebalanceSwapAmount), msg1);
+        await truffleAssert.reverts(
+            ichiVisor.connect(wallet).rebalance(-1800, 1000, 60, 540, rebalanceSwapAmount), msg1);
+        await truffleAssert.reverts(
+            ichiVisor.connect(wallet).rebalance(-1000, 1800, 60, 540, rebalanceSwapAmount), msg1);
+        
+        await truffleAssert.reverts(
+            ichiVisor.connect(wallet).rebalance(-1800, 1200, -60, -540, rebalanceSwapAmount), msg2);
+        await truffleAssert.reverts(
+            ichiVisor.connect(wallet).rebalance(-1800, 1200, -600, -500, rebalanceSwapAmount), msg2);
+        await truffleAssert.reverts(
+            ichiVisor.connect(wallet).rebalance(-1800, 1200, -620, -540, rebalanceSwapAmount), msg2);
     })
 
 })
