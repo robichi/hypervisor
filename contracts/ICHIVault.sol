@@ -77,7 +77,7 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
         bool _allowToken1,
         address _owner
     ) 
-        ERC20("xICHI Liquidity", "xICHI")
+        ERC20("ICHIVault Liquidity", "ICHIVault LP")
     {
         pool = _pool;
         token0 = IUniswapV3Pool(_pool).token0();
