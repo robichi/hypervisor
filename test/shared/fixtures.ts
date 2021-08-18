@@ -59,7 +59,8 @@ interface ICHIVaultFactoryFixture {
 
 async function ichiVaultFactoryFixture(factory: UniswapV3Factory): Promise<ICHIVaultFactoryFixture> {
     const ichiVaultFactoryFactory = await ethers.getContractFactory('ICHIVaultFactory')
-    const ichiVaultFactory = (await ichiVaultFactoryFactory.deploy(factory.address)) as ICHIVaultFactory
+    // TODO - use another account for feeRecipient
+    const ichiVaultFactory = (await ichiVaultFactoryFactory.deploy(factory.address, factory.address)) as ICHIVaultFactory
     
     return { ichiVaultFactory }
 }

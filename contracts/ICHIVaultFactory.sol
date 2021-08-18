@@ -15,6 +15,10 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
 
     address public override immutable uniswapV3Factory;
 
+    address public override feeRecipient;
+    uint8 public override baseFee;
+    uint8 public override baseFeeSplit;
+
     struct Token {
         AddressSet.Set vaultSet;
     }
@@ -31,9 +35,14 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
      @notice creates an instance of ICHIVaultFactory
      @param _uniswapV3Factory Uniswap V3 factory
      */
-    constructor(address _uniswapV3Factory) {
+    constructor(address _uniswapV3Factory, address _feeRecipient) {
+        //require(_feeRecipient != NULL_ADDRESS, 'ICHIVaultFactory.constructor: zero address');
+        //require(_uniswapV3Factory != NULL_ADDRESS, 'ICHIVaultFactory.constructor: zero address');
         uniswapV3Factory = _uniswapV3Factory;
-        emit UniswapV3Factory(msg.sender, _uniswapV3Factory);
+        feeRecipient = _feeRecipient;
+        baseFee = 10; // default is 10%
+        baseFeeSplit = 50; // default is 50/50 between feeRecipient and affiliate 
+        emit DeployICHIVaultFactory(msg.sender, _uniswapV3Factory, _feeRecipient);
     }
 
     /**
@@ -70,7 +79,7 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
         }
 
         ichiVault = address(
-            new ICHIVault{salt: keccak256(abi.encodePacked(token0, allowToken0, token1, allowToken1, fee, tickSpacing))}(pool, allowToken0, allowToken1, owner())
+            new ICHIVault{salt: keccak256(abi.encodePacked(address(this), token0, allowToken0, token1, allowToken1, fee, tickSpacing))}(address(this), pool, allowToken0, allowToken1, owner())
         );
 
         getICHIVault[token0][token1][fee][allowToken0][allowToken1] = ichiVault;
@@ -81,6 +90,36 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
         tokens[token1].vaultSet.insert(ichiVault, 'ICHIVaultFactory.createICHIVault:: (500) token1 collision');
 
         emit ICHIVaultCreated(msg.sender, ichiVault, token0, allowToken0, token1, allowToken1, fee, vaultSet.count());
+    }
+
+    /**
+     @notice Sets the fee recipient account address, where portion of the collected swap fees will be distributed
+     @dev onlyOwner
+     @param _feeRecipient The fee recipient account address
+     */
+    function setFeeRecipient(address _feeRecipient) external onlyOwner {
+        require(_feeRecipient != NULL_ADDRESS, 'ICHIVaultFactory.setFeeRecipient: zero address');
+        feeRecipient = _feeRecipient;
+    }
+
+    /**
+     @notice Sets the fee percentage to be taked from the accumulated pool's swap fees. This percentage is then distributed between the feeRecipient and affiliate accounts
+     @dev onlyOwner
+     @param _baseFee The fee percentage to be taked from the accumulated pool's swap fee
+     */
+    function setBaseFee(uint8 _baseFee) external onlyOwner {
+        require(_baseFee <= 100, 'ICHIVaultFactory.setBaseFee: baseFee must be <= 100%');
+        baseFee = _baseFee;
+    }
+
+    /**
+     @notice Sets the fee split ratio between feeRecipient and affilicate accounts. The ratio is set as (baseFeeSplit)/(100 - baseFeeSplit), that is if we want 20/80 ratio (with feeRecipient getting 20%), baseFeeSplit should be set to 20
+     @dev onlyOwner
+     @param _baseFeeSplit The fee split ratio between feeRecipient and affilicate accounts
+     */
+    function setBaseFeeSplit(uint8 _baseFeeSplit) external onlyOwner {
+        require(_baseFeeSplit <= 100, 'ICHIVaultFactory.setBaseFeeSplit: baseFeeSplit must be <= 100');
+        baseFeeSplit = _baseFeeSplit;
     }
 
     /**

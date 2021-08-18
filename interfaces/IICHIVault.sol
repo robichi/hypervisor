@@ -4,14 +4,17 @@ pragma solidity 0.7.6;
 
 interface IICHIVault{
 
+    function ichiVaultFactory() external view returns(address);
+
     function pool() external view returns(address);
     function token0() external view returns(address);
     function allowToken0() external view returns(bool);
     function token1() external view returns(address);
     function allowToken1() external view returns(bool);
     function fee() external view returns(uint24);
-
     function tickSpacing() external view returns(int24);
+    function affiliate() external view returns(address);
+
     function baseLower() external view returns(int24);
     function baseUpper() external view returns(int24);
     function limitLower() external view returns(int24);
@@ -47,9 +50,10 @@ interface IICHIVault{
     function getTotalAmounts() external view returns (uint256, uint256);
 
     event DeployICHIVault(
-        address sender, 
-        address _pool, 
-        address _owner);
+        address indexed sender, 
+        address indexed ichiVaultFactory, 
+        address indexed pool, 
+        address owner);
 
     event Deposit(
         address indexed sender,
@@ -71,6 +75,8 @@ interface IICHIVault{
         int24 tick,
         uint256 totalAmount0,
         uint256 totalAmount1,
+        uint256 feeAmount0,
+        uint256 feeAmount1,
         uint256 totalSupply
     );
 }

@@ -5,13 +5,17 @@ pragma solidity 0.7.6;
 interface IICHIVaultFactory {
 
     function uniswapV3Factory() external view returns(address);
+    function feeRecipient() external view returns(address);
+    function baseFee() external view returns(uint8);
+    function baseFeeSplit() external view returns(uint8);
 
-    event UniswapV3Factory(
+    event DeployICHIVaultFactory(
         address sender, 
-        address uniswapV3);
+        address uniswapV3Factory,
+        address feeRecipient);
 
     event ICHIVaultCreated(
-        address sender, 
+        address indexed sender, 
         address ichiVault, 
         address tokenA,
         bool allowTokenA,

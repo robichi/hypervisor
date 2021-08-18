@@ -44,8 +44,10 @@ describe('Vaults on Mainnet Fork', () => {
     let usdc: TestERC20
 
     beforeEach('deploy contracts', async () => {
+        let [owner] = await ethers.getSigners()
+
         const ichiVaultFactoryFactory = await ethers.getContractFactory('ICHIVaultFactory')
-        ichiVaultFactory = (await ichiVaultFactoryFactory.deploy(uniswapV3Factory)) as ICHIVaultFactory
+        ichiVaultFactory = (await ichiVaultFactoryFactory.deploy(uniswapV3Factory, owner.address)) as ICHIVaultFactory
     
         // let [owner, alice] = await ethers.getSigners()
 

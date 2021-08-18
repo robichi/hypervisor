@@ -17,6 +17,7 @@ import {FullMath} from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import {LiquidityAmounts} from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 
 import {IICHIVault} from "../interfaces/IICHIVault.sol";
+import {IICHIVaultFactory} from "../interfaces/IICHIVaultFactory.sol";
 
 /**
  @notice A Uniswap V2-like interface with fungible liquidity to Uniswap V3 
@@ -29,6 +30,7 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
 
     address constant NULL_ADDRESS = address(0);
 
+    address public override immutable ichiVaultFactory;
     address public override immutable pool;
     address public override immutable token0;
     address public override immutable token1;
@@ -36,6 +38,7 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
     bool public override immutable allowToken1;
     uint24 public override immutable fee;
     int24 public override immutable tickSpacing;
+    address public override affiliate;
 
     int24 public override baseLower;
     int24 public override baseUpper;
@@ -66,19 +69,24 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
 
     /**
      @notice creates an instance of ICHIVault based on the pool. allowToken parameters control whether the ICHIVault allows one-sided or two-sided liquidity provision
+     @param _ichiVaultFactory ICHIVaultFactory to be consulted for fee settings
      @param _pool Uniswap V3 pool for which liquidity is managed
      @param _allowToken0 flag that indicates whether token0 is accepted during deposit
      @param _allowToken1 flag that indicates whether token1 is accepted during deposit
      @param _owner Owner of the ICHIVault
      */
     constructor(
+        address _ichiVaultFactory,
         address _pool,
         bool _allowToken0,
         bool _allowToken1,
         address _owner
     ) 
-        ERC20("ICHIVault Liquidity", "ICHIVault LP")
+        ERC20("ICHI Vault Liquidity", "ICHI_Vault_LP")
     {
+        require(_ichiVaultFactory != NULL_ADDRESS, 'ICHIVault.constructor: zero address');
+        require(_pool != NULL_ADDRESS, 'ICHIVault.constructor: zero address');
+        ichiVaultFactory = _ichiVaultFactory;
         pool = _pool;
         token0 = IUniswapV3Pool(_pool).token0();
         token1 = IUniswapV3Pool(_pool).token1();
@@ -92,7 +100,8 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
         maxTotalSupply = 0; // no cap
         deposit0Max = uint256(-1); // max uint256
         deposit1Max = uint256(-1); // max uint256
-        emit DeployICHIVault(msg.sender, _pool, _owner);
+        affiliate = NULL_ADDRESS; // by default there is no affiliate address
+        emit DeployICHIVault(msg.sender, _ichiVaultFactory, _pool, _owner);
     }
 
     /**
@@ -204,7 +213,6 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
         require(_limitLower < _limitUpper && _limitLower % tickSpacing == 0 && _limitUpper % tickSpacing == 0,
                 "ICHIVault.rebalance: limit position invalid");
 
-        // TODO: Can this block be removed? 
         // update fees
         (uint128 baseLiquidity,,) = _position(baseLower, baseUpper);
         if (baseLiquidity > 0) {
@@ -215,13 +223,24 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
             IUniswapV3Pool(pool).burn(limitLower, limitUpper, 0);
         }
 
+        // Withdraw all liquidity and collect all fees from Uniswap pool
+        (, uint256 feesLimit0, uint256 feesLimit1) = _position(baseLower, baseUpper);
+        (, uint256 feesBase0, uint256 feesBase1) = _position(limitLower, limitUpper);
+
+        uint256 fees0 = feesBase0.add(feesLimit0);
+        uint256 fees1 = feesBase1.add(feesLimit1);
+        
         _burnLiquidity(baseLower, baseUpper, baseLiquidity, address(this), true);
         _burnLiquidity(limitLower, limitUpper, limitLiquidity, address(this), true);
+
+        _distributeFees(fees0, fees1);
 
         emit Rebalance(
             currentTick(),
             IERC20(token0).balanceOf(address(this)),
             IERC20(token1).balanceOf(address(this)),
+            fees0,
+            fees1,
             totalSupply()
         );
 
@@ -255,6 +274,46 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
             IERC20(token1).balanceOf(address(this))
         );
         _mintLiquidity(limitLower, limitUpper, limitLiquidity, address(this));
+    }
+
+    /**
+     @notice Sends portion of swap fees to feeRecipient and affiliate.
+     @param fees0 fees for token0
+     @param fees1 fees for token1
+     */
+    function _distributeFees(
+        uint256 fees0,
+        uint256 fees1
+    ) private {
+        uint8 baseFee = IICHIVaultFactory(ichiVaultFactory).baseFee();
+        // if there is no affiliate 100% of the baseFee should go to feeRecipient
+        uint8 baseFeeSplit = (affiliate == NULL_ADDRESS) ? 100 : IICHIVaultFactory(ichiVaultFactory).baseFeeSplit();
+        address feeRecipient = IICHIVaultFactory(ichiVaultFactory).feeRecipient();
+
+        require(baseFee <= 100, 'ICHIVault.rebalance: baseFee must be <= 100%');
+        require(baseFeeSplit <= 100, 'ICHIVault.rebalance: baseFeeSplit must be <= 100');
+        require(feeRecipient != NULL_ADDRESS, 'ICHIVault.rebalance: zero address');
+
+        if (baseFee > 0) {
+            if(fees0 > 0) {
+                uint256 totalFee = fees0.mul(baseFee).div(100);
+                uint256 toRecipient = totalFee.mul(baseFeeSplit).div(100);
+                uint256 toAffiliate = totalFee.sub(toRecipient);
+                IERC20(token0).safeTransfer(feeRecipient, toRecipient);
+                if (baseFeeSplit < 100) {
+                    IERC20(token0).safeTransfer(affiliate, toAffiliate);
+                }
+            }
+            if(fees1 > 0) {
+                uint256 totalFee = fees1.mul(baseFee).div(100);
+                uint256 toRecipient = totalFee.mul(baseFeeSplit).div(100);
+                uint256 toAffiliate = totalFee.sub(toRecipient);
+                IERC20(token1).safeTransfer(feeRecipient, toRecipient);
+                if (baseFeeSplit < 100) {
+                    IERC20(token1).safeTransfer(affiliate, toAffiliate);
+                }
+            }
+        }
     }
 
     /**
@@ -523,6 +582,15 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
      */
     function setMaxTotalSupply(uint256 _maxTotalSupply) external onlyOwner {
         maxTotalSupply = _maxTotalSupply;
+    }
+
+    /**
+     @notice Sets the affiliate account address where portion of the collected swap fees will be distributed
+     @dev onlyOwner
+     @param _affiliate The affiliate account address
+     */
+    function setAffiliate(address _affiliate) external onlyOwner {
+        affiliate = _affiliate;
     }
 
     /**
