@@ -51,7 +51,6 @@ interface IICHIVault{
 
     event DeployICHIVault(
         address indexed sender, 
-        address indexed ichiVaultFactory, 
         address indexed pool, 
         address owner);
 

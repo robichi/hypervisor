@@ -11,8 +11,7 @@ interface IICHIVaultFactory {
 
     event DeployICHIVaultFactory(
         address sender, 
-        address uniswapV3Factory,
-        address feeRecipient);
+        address uniswapV3Factory);
 
     event ICHIVaultCreated(
         address indexed sender, 
@@ -31,22 +30,4 @@ interface IICHIVaultFactory {
             bool allowTokenB,
             uint24 fee
         ) external returns (address ichiVault);
-
-    function tokenCount() external view returns(uint);
-
-    function tokenAtIndex(uint index) external returns(address);
-
-    function isToken(address token) external returns(bool);
-
-    function ichiVaultsCount() external view returns (uint256);
-
-    function ichiVaultAtIndex(uint index) external view returns(address);
-
-    function isIchiVault(address ichiVault) external view returns(bool);
-
-    function tokenIchiVaultCount(address token) external view returns(uint);
-
-    function tokenIchiVaultAtIndex(address token, uint index) external view returns(address);
-
-    function isTokenIchiVault(address token, address ichiVault) external view returns(bool);
 }

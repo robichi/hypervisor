@@ -58,7 +58,7 @@ describe('Access Control Checks', () => {
         ({ token0, token1, token2, factory, router, nft, ichiVaultFactory } = await loadFixture(ichiVaultTestFixture))
         await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
         
-        const ichiVaultAddress = await ichiVaultFactory.ichiVaultAtIndex(0);
+        const ichiVaultAddress = await ichiVaultFactory.vaultSet(0);
         ichiVault = (await ethers.getContractAt('ICHIVault', ichiVaultAddress)) as ICHIVault
 
         const poolAddress = await factory.getPool(token0.address, token1.address, FeeAmount.MEDIUM)
@@ -88,12 +88,6 @@ describe('Access Control Checks', () => {
             deadline: 2000000000,
         })
         
-    })
-
-    it('ICHIVaultFactory', async () => {
-        let msg1 = "Ownable: caller is not the owner";
-
-        await truffleAssert.reverts(ichiVaultFactory.connect(alice).createICHIVault(token0.address, true, token0.address, true, FeeAmount.MEDIUM), msg1);
     })
 
     it('ICHIVault', async () => {
@@ -130,7 +124,7 @@ describe('Input Validation Checks', () => {
         ({ token0, token1, token2, factory, router, nft, ichiVaultFactory } = await loadFixture(ichiVaultTestFixture))
         await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
         
-        const ichiVaultAddress = await ichiVaultFactory.ichiVaultAtIndex(0);
+        const ichiVaultAddress = await ichiVaultFactory.vaultSet(0);
         ichiVault = (await ethers.getContractAt('ICHIVault', ichiVaultAddress)) as ICHIVault
 
         const poolAddress = await factory.getPool(token0.address, token1.address, FeeAmount.MEDIUM)
@@ -163,11 +157,11 @@ describe('Input Validation Checks', () => {
     })
 
     it('ICHIVaultFactory - createIchiVault', async () => {
-        let msg1 = "ICHIVaultFactory.createICHIVault: Identical token addresses",
-            msg2 = "ICHIVaultFactory.createICHIVault: zero address",
-            msg3 = "ICHIVaultFactory.createICHIVault: At least one token must be allowed",
-            msg4 = "ICHIVaultFactory.createICHIVault: ICHIVault exists",
-            msg5 = "ICHIVaultFactory.createICHIVault: fee incorrect";
+        let msg1 = "IVF.createICHIVault: Identical token addresses",
+            msg2 = "IVF.createICHIVault: zero address",
+            msg3 = "IVF.createICHIVault: At least one token must be allowed",
+            msg4 = "IVF.createICHIVault: ICHIVault exists",
+            msg5 = "IVF.createICHIVault: fee incorrect";
 
         await truffleAssert.reverts(ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token0.address, true, FeeAmount.MEDIUM), msg1);
         await truffleAssert.reverts(ichiVaultFactory.connect(wallet).createICHIVault(NULL_ADDRESS, true, token1.address, true, FeeAmount.MEDIUM), msg2);
@@ -182,43 +176,43 @@ describe('Input Validation Checks', () => {
     }
 
     it('ICHIVault - deposit', async () => {
-        let msg1 = "ICHIVault.deposit: token0 prohibited by ICHIVault policy",
-            msg2 = "ICHIVault.deposit: token1 prohibited by ICHIVault policy",
-            msg3 = "ICHIVault.deposit: deposits must be nonzero",
-            msg4 = "ICHIVault.deposit: deposits must be less than maximum amounts",
-            msg5 = "ICHIVault.deposit: to",
-            msg6 = "ICHIVault.deposit: maxTotalSupply";
+        let msg1 = "IV.deposit: token0 prohibited by ICHIVault policy",
+            msg2 = "IV.deposit: token1 prohibited by ICHIVault policy",
+            msg3 = "IV.deposit: deposits must be nonzero",
+            msg4 = "IV.deposit: deposits must be less than maximum amounts",
+            msg5 = "IV.deposit: to",
+            msg6 = "IV.deposit: maxTotalSupply";
 
 
         await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, false, FeeAmount.HIGH)
         await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, false, token1.address, true, FeeAmount.LOW)
 
         // check allowToken policy
-        let ichiVaultAddress = await ichiVaultFactory.getICHIVault(token0.address, token1.address, FeeAmount.HIGH, true, false);
+        let ichiVaultAddress = await ichiVaultFactory.getICHIVault(wallet.address, token0.address, token1.address, FeeAmount.HIGH, true, false);
         ichiVault = (await ethers.getContractAt('ICHIVault', ichiVaultAddress)) as ICHIVault
 
         await truffleAssert.reverts(
             ichiVault.deposit(smallTokenAmount, ethers.utils.parseEther('4000'), alice.address), msg2);
                 
-        ichiVaultAddress = await ichiVaultFactory.getICHIVault(token0.address, token1.address, FeeAmount.LOW, false, true);
+        ichiVaultAddress = await ichiVaultFactory.getICHIVault(wallet.address, token0.address, token1.address, FeeAmount.LOW, false, true);
         ichiVault = (await ethers.getContractAt('ICHIVault', ichiVaultAddress)) as ICHIVault
 
         await truffleAssert.reverts(
             ichiVault.deposit(smallTokenAmount, ethers.utils.parseEther('4000'), alice.address), msg1);
     
         // check deposit values
-        ichiVaultAddress = await ichiVaultFactory.getICHIVault(token0.address, token1.address, FeeAmount.HIGH, true, false);
+        ichiVaultAddress = await ichiVaultFactory.getICHIVault(wallet.address, token0.address, token1.address, FeeAmount.HIGH, true, false);
         ichiVault = (await ethers.getContractAt('ICHIVault', ichiVaultAddress)) as ICHIVault
         await truffleAssert.reverts(
             ichiVault.deposit(0, 0, alice.address), msg3);
 
-        ichiVaultAddress = await ichiVaultFactory.getICHIVault(token0.address, token1.address, FeeAmount.LOW, false, true);
+        ichiVaultAddress = await ichiVaultFactory.getICHIVault(wallet.address, token0.address, token1.address, FeeAmount.LOW, false, true);
         ichiVault = (await ethers.getContractAt('ICHIVault', ichiVaultAddress)) as ICHIVault
         await truffleAssert.reverts(
             ichiVault.deposit(0, 0, alice.address), msg3);
 
         // check against max deposit amounts
-        ichiVaultAddress = await ichiVaultFactory.getICHIVault(token0.address, token1.address, FeeAmount.MEDIUM, true, true);
+        ichiVaultAddress = await ichiVaultFactory.getICHIVault(wallet.address, token0.address, token1.address, FeeAmount.MEDIUM, true, true);
         ichiVault = (await ethers.getContractAt('ICHIVault', ichiVaultAddress)) as ICHIVault
         await truffleAssert.reverts(
             ichiVault.deposit(ethers.utils.parseEther('200000'), ethers.utils.parseEther('4000'), alice.address), msg4);
@@ -247,8 +241,8 @@ describe('Input Validation Checks', () => {
     })
 
     it('ICHIVault - withdraw', async () => {
-        let msg1 = "ICHIVault.withdraw: to",
-            msg2 = "ICHIVault.withdraw: shares";
+        let msg1 = "IV.withdraw: to",
+            msg2 = "IV.withdraw: shares";
 
         // alice approves the ICHIVault to transfer her tokens
         await token0.connect(alice).approve(ichiVault.address, largeTokenAmount)
@@ -269,8 +263,8 @@ describe('Input Validation Checks', () => {
     })
 
     it('ICHIVault - rebalance', async () => {
-        let msg1 = "ICHIVault.rebalance: base position invalid",
-            msg2 = "ICHIVault.rebalance: limit position invalid";
+        let msg1 = "IV.rebalance: base position invalid",
+            msg2 = "IV.rebalance: limit position invalid";
 
         // alice approves the ICHIVault to transfer her tokens
         await token0.connect(alice).approve(ichiVault.address, largeTokenAmount)

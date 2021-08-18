@@ -5,12 +5,9 @@ import {IICHIVaultFactory} from '../interfaces/IICHIVaultFactory.sol';
 import {IUniswapV3Factory} from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
 import {ICHIVault} from './ICHIVault.sol';
-import {AddressSet} from "./lib/AddressSet.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
 contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
-    using AddressSet for AddressSet.Set;
-
     address constant NULL_ADDRESS = address(0);
 
     address public override immutable uniswapV3Factory;
@@ -19,30 +16,23 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
     uint8 public override baseFee;
     uint8 public override baseFeeSplit;
 
-    struct Token {
-        AddressSet.Set vaultSet;
-    }
-    mapping(address => Token) tokens;
-    AddressSet.Set tokenSet;
-
     /**
      @notice getICHIVault allows direct lookup for ICHIVaults using token0/token1/fee/allowToken0/allowToken1 values
      */
-    mapping(address => mapping(address => mapping(uint24 => mapping(bool => mapping(bool => address))))) public getICHIVault; // token0, token1, fee, allowToken1, allowToken2 -> ichiVault address
-    AddressSet.Set vaultSet;
+    mapping(address => mapping(address => mapping(address => mapping(uint24 => mapping(bool => mapping(bool => address)))))) public getICHIVault; // deployer, token0, token1, fee, allowToken1, allowToken2 -> ichiVault address
+    address[] public vaultSet;
 
     /**
      @notice creates an instance of ICHIVaultFactory
      @param _uniswapV3Factory Uniswap V3 factory
      */
-    constructor(address _uniswapV3Factory, address _feeRecipient) {
-        //require(_feeRecipient != NULL_ADDRESS, 'ICHIVaultFactory.constructor: zero address');
-        //require(_uniswapV3Factory != NULL_ADDRESS, 'ICHIVaultFactory.constructor: zero address');
+    constructor(address _uniswapV3Factory) {
+        require(_uniswapV3Factory != NULL_ADDRESS, 'IVF.constructor: zero address');
         uniswapV3Factory = _uniswapV3Factory;
-        feeRecipient = _feeRecipient;
+        feeRecipient = msg.sender;
         baseFee = 10; // default is 10%
         baseFeeSplit = 50; // default is 50/50 between feeRecipient and affiliate 
-        emit DeployICHIVaultFactory(msg.sender, _uniswapV3Factory, _feeRecipient);
+        emit DeployICHIVaultFactory(msg.sender, _uniswapV3Factory);
     }
 
     /**
@@ -60,36 +50,33 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
         address tokenB,
         bool allowTokenB,
         uint24 fee
-    ) external override onlyOwner returns (address ichiVault) {
-        require(tokenA != tokenB, 'ICHIVaultFactory.createICHIVault: Identical token addresses');
-        require(allowTokenA || allowTokenB, 'ICHIVaultFactory.createICHIVault: At least one token must be allowed');
+    ) external override returns (address ichiVault) {
+        require(tokenA != tokenB, 'IVF.createICHIVault: Identical token addresses');
+        require(allowTokenA || allowTokenB, 'IVF.createICHIVault: At least one token must be allowed');
 
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         (bool allowToken0, bool allowToken1) = tokenA < tokenB ? (allowTokenA, allowTokenB) : (allowTokenB, allowTokenA);
 
-        require(token0 != NULL_ADDRESS, 'ICHIVaultFactory.createICHIVault: zero address');
+        require(token0 != NULL_ADDRESS, 'IVF.createICHIVault: zero address');
 
-        require(getICHIVault[token0][token1][fee][allowToken0][allowToken1] == NULL_ADDRESS, 'ICHIVaultFactory.createICHIVault: ICHIVault exists');
+        require(getICHIVault[msg.sender][token0][token1][fee][allowToken0][allowToken1] == NULL_ADDRESS, 'IVF.createICHIVault: ICHIVault exists');
 
         int24 tickSpacing = IUniswapV3Factory(uniswapV3Factory).feeAmountTickSpacing(fee);
-        require(tickSpacing != 0, 'ICHIVaultFactory.createICHIVault: fee incorrect');
+        require(tickSpacing != 0, 'IVF.createICHIVault: fee incorrect');
         address pool = IUniswapV3Factory(uniswapV3Factory).getPool(tokenA, tokenB, fee);
         if (pool == NULL_ADDRESS) {
             pool = IUniswapV3Factory(uniswapV3Factory).createPool(token0, token1, fee);
         }
 
         ichiVault = address(
-            new ICHIVault{salt: keccak256(abi.encodePacked(address(this), token0, allowToken0, token1, allowToken1, fee, tickSpacing))}(address(this), pool, allowToken0, allowToken1, owner())
+            new ICHIVault{salt: keccak256(abi.encodePacked(msg.sender, token0, allowToken0, token1, allowToken1, fee, tickSpacing))}(pool, allowToken0, allowToken1, msg.sender)
         );
 
-        getICHIVault[token0][token1][fee][allowToken0][allowToken1] = ichiVault;
-        getICHIVault[token1][token0][fee][allowToken1][allowToken0] = ichiVault; // populate mapping in the reverse direction
-        // should not be possible for these inserts to fail
-        vaultSet.insert(ichiVault, 'ICHIVaultFactory.createICHIVault: (500) ICHIVault already exists');
-        tokens[token0].vaultSet.insert(ichiVault, 'ICHIVaultFactory.createICHIVault:: (500) token0 collision');
-        tokens[token1].vaultSet.insert(ichiVault, 'ICHIVaultFactory.createICHIVault:: (500) token1 collision');
+        getICHIVault[msg.sender][token0][token1][fee][allowToken0][allowToken1] = ichiVault;
+        getICHIVault[msg.sender][token1][token0][fee][allowToken1][allowToken0] = ichiVault; // populate mapping in the reverse direction
+        vaultSet.push(ichiVault);
 
-        emit ICHIVaultCreated(msg.sender, ichiVault, token0, allowToken0, token1, allowToken1, fee, vaultSet.count());
+        emit ICHIVaultCreated(msg.sender, ichiVault, token0, allowToken0, token1, allowToken1, fee, vaultSet.length);
     }
 
     /**
@@ -98,7 +85,7 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
      @param _feeRecipient The fee recipient account address
      */
     function setFeeRecipient(address _feeRecipient) external onlyOwner {
-        require(_feeRecipient != NULL_ADDRESS, 'ICHIVaultFactory.setFeeRecipient: zero address');
+        require(_feeRecipient != NULL_ADDRESS, 'IVF.setFeeRecipient: zero address');
         feeRecipient = _feeRecipient;
     }
 
@@ -108,7 +95,7 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
      @param _baseFee The fee percentage to be taked from the accumulated pool's swap fee
      */
     function setBaseFee(uint8 _baseFee) external onlyOwner {
-        require(_baseFee <= 100, 'ICHIVaultFactory.setBaseFee: baseFee must be <= 100%');
+        require(_baseFee <= 100, 'IVF.setBaseFee: baseFee must be <= 100%');
         baseFee = _baseFee;
     }
 
@@ -118,79 +105,8 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
      @param _baseFeeSplit The fee split ratio between feeRecipient and affilicate accounts
      */
     function setBaseFeeSplit(uint8 _baseFeeSplit) external onlyOwner {
-        require(_baseFeeSplit <= 100, 'ICHIVaultFactory.setBaseFeeSplit: baseFeeSplit must be <= 100');
+        require(_baseFeeSplit <= 100, 'IVF.setBaseFeeSplit: baseFeeSplit must be <= 100');
         baseFeeSplit = _baseFeeSplit;
     }
 
-    /**
-     @notice returns the count of tokens ICHIVaults were created for
-     */
-    function tokenCount() external override view returns(uint) {
-        return tokenSet.count();
-    }
-
-    /**
-     @notice returns token address at the index
-     @param index row to inspect
-     */
-    function tokenAtIndex(uint index) external override view returns(address) {
-        return tokenSet.keyAtIndex(index);
-    }
-
-    /**
-     @notice returns true if given address is for one of the tokens with an ICHIVault created for
-     @param token address to inspect
-     */
-    function isToken(address token) external override view returns(bool) {
-        return tokenSet.exists(token);
-    }
-
-    /**
-     @notice returns the count of ICHIVaults
-     */
-    function ichiVaultsCount() external override view returns (uint256) {
-        return vaultSet.count();
-    }
-
-    /**
-     @notice returns ICHIVault address at the index
-     @param index row to inspect
-     */
-    function ichiVaultAtIndex(uint index) external override view returns(address) {
-        return vaultSet.keyAtIndex(index);
-    }
-
-    /**
-     @notice returns true if given address is an ICHIVault
-     @param ichiVault address to inspect
-     */
-    function isIchiVault(address ichiVault) external override view returns(bool) {
-        return vaultSet.exists(ichiVault);
-    }
-
-    /**
-     @notice returns the count of ICHIVaults for a given token
-     @param token token address to inspect
-     */
-    function tokenIchiVaultCount(address token) external override view returns(uint) {
-        return tokens[token].vaultSet.count();
-    }
-
-    /**
-     @notice returns ICHIVault address at the index for a given token
-     @param token token address to inspect
-     @param index row to inspect
-     */
-    function tokenIchiVaultAtIndex(address token, uint index) external override view returns(address) {
-        return tokens[token].vaultSet.keyAtIndex(index);
-    }
-
-    /**
-     @notice returns true if given address is an ICHIVault for a given token
-     @param token token address to inspect
-     @param ichiVault address to inspect
-     */
-    function isTokenIchiVault(address token, address ichiVault) external override view returns(bool) {
-        return tokenSet.exists(token) ? tokens[token].vaultSet.exists(ichiVault) : false;
-    }
 }

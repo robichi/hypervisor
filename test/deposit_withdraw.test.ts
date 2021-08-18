@@ -59,7 +59,7 @@ describe('ICHIVault General Functionality', () => {
         // console.log("wallet used to create new ICHIVaults " + wallet.address);
         await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
         
-        let ichiVaultAddress = await ichiVaultFactory.getICHIVault(token0.address, token1.address, FeeAmount.MEDIUM, true, true);
+        let ichiVaultAddress = await ichiVaultFactory.getICHIVault(wallet.address, token0.address, token1.address, FeeAmount.MEDIUM, true, true);
         ichiVault = (await ethers.getContractAt('ICHIVault', ichiVaultAddress)) as ICHIVault
         // console.log("ICHIVault address " + ichiVault.address);
 
@@ -547,7 +547,7 @@ describe('ETHUSDT ICHIVault Test', () => {
         ({ token0, token1, token2, factory, router, nft, ichiVaultFactory } = await loadFixture(ichiVaultTestFixture))
         await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
 
-        let ichiVaultAddress = await ichiVaultFactory.getICHIVault(token0.address, token1.address, FeeAmount.MEDIUM, true, true);
+        let ichiVaultAddress = await ichiVaultFactory.getICHIVault(wallet.address, token0.address, token1.address, FeeAmount.MEDIUM, true, true);
         ichiVault = (await ethers.getContractAt('ICHIVault', ichiVaultAddress)) as ICHIVault
  
         await ichiVault.connect(wallet).setDepositMax(ethers.utils.parseEther('100000'), ethers.utils.parseEther('100000'))

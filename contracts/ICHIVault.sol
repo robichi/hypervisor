@@ -69,14 +69,12 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
 
     /**
      @notice creates an instance of ICHIVault based on the pool. allowToken parameters control whether the ICHIVault allows one-sided or two-sided liquidity provision
-     @param _ichiVaultFactory ICHIVaultFactory to be consulted for fee settings
      @param _pool Uniswap V3 pool for which liquidity is managed
      @param _allowToken0 flag that indicates whether token0 is accepted during deposit
      @param _allowToken1 flag that indicates whether token1 is accepted during deposit
      @param _owner Owner of the ICHIVault
      */
     constructor(
-        address _ichiVaultFactory,
         address _pool,
         bool _allowToken0,
         bool _allowToken1,
@@ -84,9 +82,8 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
     ) 
         ERC20("ICHI Vault Liquidity", "ICHI_Vault_LP")
     {
-        require(_ichiVaultFactory != NULL_ADDRESS, 'ICHIVault.constructor: zero address');
-        require(_pool != NULL_ADDRESS, 'ICHIVault.constructor: zero address');
-        ichiVaultFactory = _ichiVaultFactory;
+        require(_pool != NULL_ADDRESS, 'IV.constructor: zero address');
+        ichiVaultFactory = msg.sender;
         pool = _pool;
         token0 = IUniswapV3Pool(_pool).token0();
         token1 = IUniswapV3Pool(_pool).token1();
@@ -101,7 +98,7 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
         deposit0Max = uint256(-1); // max uint256
         deposit1Max = uint256(-1); // max uint256
         affiliate = NULL_ADDRESS; // by default there is no affiliate address
-        emit DeployICHIVault(msg.sender, _ichiVaultFactory, _pool, _owner);
+        emit DeployICHIVault(msg.sender, _pool, _owner);
     }
 
     /**
@@ -116,11 +113,11 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
         uint256 deposit1,
         address to
     ) external override returns (uint256 shares) {
-        require(allowToken0 || deposit0 == 0, 'ICHIVault.deposit: token0 prohibited by ICHIVault policy');
-        require(allowToken1 || deposit1 == 0, 'ICHIVault.deposit: token1 prohibited by ICHIVault policy');
-        require(deposit0 > 0 || deposit1 > 0, "ICHIVault.deposit: deposits must be nonzero");
-        require(deposit0 < deposit0Max && deposit1 < deposit1Max, "ICHIVault.deposit: deposits must be less than maximum amounts");
-        require(to != NULL_ADDRESS && to != address(this), "ICHIVault.deposit: to");
+        require(allowToken0 || deposit0 == 0, 'IV.deposit: token0 prohibited by ICHIVault policy');
+        require(allowToken1 || deposit1 == 0, 'IV.deposit: token1 prohibited by ICHIVault policy');
+        require(deposit0 > 0 || deposit1 > 0, 'IV.deposit: deposits must be nonzero');
+        require(deposit0 < deposit0Max && deposit1 < deposit1Max, 'IV.deposit: deposits must be less than maximum amounts');
+        require(to != NULL_ADDRESS && to != address(this), 'IV.deposit: to');
 
         // update fees for inclusion in total pool amounts
         (uint128 baseLiquidity,,) = _position(baseLower, baseUpper);
@@ -154,7 +151,7 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
         _mint(to, shares);
         emit Deposit(msg.sender, to, shares, deposit0, deposit1);
         // Check total supply cap not exceeded. A value of 0 means no limit.
-        require(maxTotalSupply == 0 || totalSupply() <= maxTotalSupply, "ICHIVault.deposit: maxTotalSupply");
+        require(maxTotalSupply == 0 || totalSupply() <= maxTotalSupply, 'IV.deposit: maxTotalSupply');
     }
 
     /**
@@ -168,8 +165,8 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
         uint256 shares,
         address to
     ) external override returns (uint256 amount0, uint256 amount1) {
-        require(shares > 0, "ICHIVault.withdraw: shares");
-        require(to != NULL_ADDRESS, "ICHIVault.withdraw: to");
+        require(shares > 0, 'IV.withdraw: shares');
+        require(to != NULL_ADDRESS, 'IV.withdraw: to');
 
         // Withdraw liquidity from Uniswap pool
         (uint256 base0, uint256 base1) =
@@ -209,9 +206,9 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
         int256 swapQuantity
     ) external override onlyOwner {
         require(_baseLower < _baseUpper && _baseLower % tickSpacing == 0 && _baseUpper % tickSpacing == 0,
-                "ICHIVault.rebalance: base position invalid");
+                "IV.rebalance: base position invalid");
         require(_limitLower < _limitUpper && _limitLower % tickSpacing == 0 && _limitUpper % tickSpacing == 0,
-                "ICHIVault.rebalance: limit position invalid");
+                "IV.rebalance: limit position invalid");
 
         // update fees
         (uint128 baseLiquidity,,) = _position(baseLower, baseUpper);
@@ -290,9 +287,9 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
         uint8 baseFeeSplit = (affiliate == NULL_ADDRESS) ? 100 : IICHIVaultFactory(ichiVaultFactory).baseFeeSplit();
         address feeRecipient = IICHIVaultFactory(ichiVaultFactory).feeRecipient();
 
-        require(baseFee <= 100, 'ICHIVault.rebalance: baseFee must be <= 100%');
-        require(baseFeeSplit <= 100, 'ICHIVault.rebalance: baseFeeSplit must be <= 100');
-        require(feeRecipient != NULL_ADDRESS, 'ICHIVault.rebalance: zero address');
+        require(baseFee <= 100, 'IV.rebalance: baseFee must be <= 100%');
+        require(baseFeeSplit <= 100, 'IV.rebalance: baseFeeSplit must be <= 100');
+        require(feeRecipient != NULL_ADDRESS, 'IV.rebalance: zero address');
 
         if (baseFee > 0) {
             if(fees0 > 0) {

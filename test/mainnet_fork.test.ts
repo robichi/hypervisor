@@ -47,15 +47,15 @@ describe('Vaults on Mainnet Fork', () => {
         let [owner] = await ethers.getSigners()
 
         const ichiVaultFactoryFactory = await ethers.getContractFactory('ICHIVaultFactory')
-        ichiVaultFactory = (await ichiVaultFactoryFactory.deploy(uniswapV3Factory, owner.address)) as ICHIVaultFactory
+        ichiVaultFactory = (await ichiVaultFactoryFactory.deploy(uniswapV3Factory)) as ICHIVaultFactory
     
         // let [owner, alice] = await ethers.getSigners()
 
         await ichiVaultFactory.createICHIVault(wethAddress, true, usdtAddress, true, FeeAmount.MEDIUM)
         await ichiVaultFactory.createICHIVault(usdcAddress, true, wethAddress, true, FeeAmount.MEDIUM)
         
-        let ethUsdtVaultAddress = await ichiVaultFactory.getICHIVault(wethAddress, usdtAddress, FeeAmount.MEDIUM, true, true);
-        let usdcEthVaultAddress = await ichiVaultFactory.getICHIVault(usdcAddress, wethAddress, FeeAmount.MEDIUM, true, true);
+        let ethUsdtVaultAddress = await ichiVaultFactory.getICHIVault(owner.address, wethAddress, usdtAddress, FeeAmount.MEDIUM, true, true);
+        let usdcEthVaultAddress = await ichiVaultFactory.getICHIVault(owner.address, usdcAddress, wethAddress, FeeAmount.MEDIUM, true, true);
 
         ethUsdtVault = (await ethers.getContractAt('ICHIVault', ethUsdtVaultAddress)) as ICHIVault
         usdcEthVault = (await ethers.getContractAt('ICHIVault', usdcEthVaultAddress)) as ICHIVault
