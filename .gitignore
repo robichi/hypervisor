@@ -12,7 +12,9 @@ OpenZeppelin/
 Uniswap/
 
 flat.sol
+coverage.json
 
 typechain
 artifacts
 cache
+coverage

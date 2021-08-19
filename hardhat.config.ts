@@ -1,4 +1,5 @@
 import 'hardhat-typechain'
+import "solidity-coverage"
 import '@nomiclabs/hardhat-ethers'
 import '@nomiclabs/hardhat-etherscan'
 import '@nomiclabs/hardhat-waffle'
