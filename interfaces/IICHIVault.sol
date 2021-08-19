@@ -52,6 +52,8 @@ interface IICHIVault{
     event DeployICHIVault(
         address indexed sender, 
         address indexed pool, 
+        bool allowToken0,
+        bool allowToken1,
         address owner);
 
     event Deposit(
@@ -78,4 +80,17 @@ interface IICHIVault{
         uint256 feeAmount1,
         uint256 totalSupply
     );
+
+    event MaxTotalSupply(
+        address sender, 
+        uint256 maxTotalSupply);
+
+    event DepositMax(
+        address sender, 
+        uint256 deposit0Max, 
+        uint256 deposit1Max);
+        
+    event Affiliate(
+        address sender, 
+        address affiliate);    
 }

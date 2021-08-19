@@ -10,11 +10,13 @@ import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Po
 contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
     address constant NULL_ADDRESS = address(0);
 
+    uint256 constant DEFAULT_BASE_FEE = 10;
+    uint256 constant DEFAULT_BASE_FEE_SPLIT = 50;
+    uint256 constant PERCENT = 100;
     address public override immutable uniswapV3Factory;
-
     address public override feeRecipient;
-    uint8 public override baseFee;
-    uint8 public override baseFeeSplit;
+    uint256 public override baseFee;
+    uint256 public override baseFeeSplit;
 
     /**
      @notice getICHIVault allows direct lookup for ICHIVaults using token0/token1/fee/allowToken0/allowToken1 values
@@ -30,8 +32,8 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
         require(_uniswapV3Factory != NULL_ADDRESS, 'IVF.constructor: zero address');
         uniswapV3Factory = _uniswapV3Factory;
         feeRecipient = msg.sender;
-        baseFee = 10; // default is 10%
-        baseFeeSplit = 50; // default is 50/50 between feeRecipient and affiliate 
+        baseFee = DEFAULT_BASE_FEE; 
+        baseFeeSplit = DEFAULT_BASE_FEE_SPLIT; 
         emit DeployICHIVaultFactory(msg.sender, _uniswapV3Factory);
     }
 
@@ -94,8 +96,8 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
      @dev onlyOwner
      @param _baseFee The fee percentage to be taked from the accumulated pool's swap fee
      */
-    function setBaseFee(uint8 _baseFee) external onlyOwner {
-        require(_baseFee <= 100, 'IVF.setBaseFee: baseFee must be <= 100%');
+    function setBaseFee(uint256 _baseFee) external onlyOwner {
+        require(_baseFee <= PERCENT, 'IVF.setBaseFee: baseFee must be <= 100%');
         baseFee = _baseFee;
     }
 
@@ -104,8 +106,8 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
      @dev onlyOwner
      @param _baseFeeSplit The fee split ratio between feeRecipient and affilicate accounts
      */
-    function setBaseFeeSplit(uint8 _baseFeeSplit) external onlyOwner {
-        require(_baseFeeSplit <= 100, 'IVF.setBaseFeeSplit: baseFeeSplit must be <= 100');
+    function setBaseFeeSplit(uint256 _baseFeeSplit) external onlyOwner {
+        require(_baseFeeSplit <= PERCENT, 'IVF.setBaseFeeSplit: baseFeeSplit must be <= 100');
         baseFeeSplit = _baseFeeSplit;
     }
 

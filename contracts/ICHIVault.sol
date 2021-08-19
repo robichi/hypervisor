@@ -28,8 +28,6 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
     using SafeMath for uint256;
     using SignedSafeMath for int256;
 
-    address constant NULL_ADDRESS = address(0);
-
     address public override immutable ichiVaultFactory;
     address public override immutable pool;
     address public override immutable token0;
@@ -66,6 +64,8 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
     uint256 public override maxTotalSupply;
 
     uint256 constant public PRECISION = 1e36;
+    uint256 constant PERCENT = 100;    
+    address constant NULL_ADDRESS = address(0);
 
     /**
      @notice creates an instance of ICHIVault based on the pool. allowToken parameters control whether the ICHIVault allows one-sided or two-sided liquidity provision
@@ -98,7 +98,7 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
         deposit0Max = uint256(-1); // max uint256
         deposit1Max = uint256(-1); // max uint256
         affiliate = NULL_ADDRESS; // by default there is no affiliate address
-        emit DeployICHIVault(msg.sender, _pool, _owner);
+        emit DeployICHIVault(msg.sender, _pool, _allowToken0, _allowToken1, _owner);
     }
 
     /**
@@ -260,7 +260,7 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
             IERC20(token0).balanceOf(address(this)),
             IERC20(token1).balanceOf(address(this))
         );
-        _mintLiquidity(baseLower, baseUpper, baseLiquidity, address(this));
+        _mintLiquidity(baseLower, baseUpper, baseLiquidity);
 
         limitLower = _limitLower;
         limitUpper = _limitUpper;
@@ -270,7 +270,7 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
             IERC20(token0).balanceOf(address(this)),
             IERC20(token1).balanceOf(address(this))
         );
-        _mintLiquidity(limitLower, limitUpper, limitLiquidity, address(this));
+        _mintLiquidity(limitLower, limitUpper, limitLiquidity);
     }
 
     /**
@@ -281,32 +281,32 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
     function _distributeFees(
         uint256 fees0,
         uint256 fees1
-    ) private {
-        uint8 baseFee = IICHIVaultFactory(ichiVaultFactory).baseFee();
+    ) internal {
+        uint256 baseFee = IICHIVaultFactory(ichiVaultFactory).baseFee();
         // if there is no affiliate 100% of the baseFee should go to feeRecipient
-        uint8 baseFeeSplit = (affiliate == NULL_ADDRESS) ? 100 : IICHIVaultFactory(ichiVaultFactory).baseFeeSplit();
+        uint256 baseFeeSplit = (affiliate == NULL_ADDRESS) ? 100 : IICHIVaultFactory(ichiVaultFactory).baseFeeSplit();
         address feeRecipient = IICHIVaultFactory(ichiVaultFactory).feeRecipient();
 
-        require(baseFee <= 100, 'IV.rebalance: baseFee must be <= 100%');
-        require(baseFeeSplit <= 100, 'IV.rebalance: baseFeeSplit must be <= 100');
+        require(baseFee <= PERCENT, 'IV.rebalance: baseFee must be <= 100%');
+        require(baseFeeSplit <= PERCENT, 'IV.rebalance: baseFeeSplit must be <= 100');
         require(feeRecipient != NULL_ADDRESS, 'IV.rebalance: zero address');
 
         if (baseFee > 0) {
             if(fees0 > 0) {
-                uint256 totalFee = fees0.mul(baseFee).div(100);
-                uint256 toRecipient = totalFee.mul(baseFeeSplit).div(100);
+                uint256 totalFee = fees0.mul(baseFee).div(PERCENT);
+                uint256 toRecipient = totalFee.mul(baseFeeSplit).div(PERCENT);
                 uint256 toAffiliate = totalFee.sub(toRecipient);
                 IERC20(token0).safeTransfer(feeRecipient, toRecipient);
-                if (baseFeeSplit < 100) {
+                if (baseFeeSplit < PERCENT) {
                     IERC20(token0).safeTransfer(affiliate, toAffiliate);
                 }
             }
             if(fees1 > 0) {
-                uint256 totalFee = fees1.mul(baseFee).div(100);
-                uint256 toRecipient = totalFee.mul(baseFeeSplit).div(100);
+                uint256 totalFee = fees1.mul(baseFee).div(PERCENT);
+                uint256 toRecipient = totalFee.mul(baseFeeSplit).div(PERCENT);
                 uint256 toAffiliate = totalFee.sub(toRecipient);
                 IERC20(token1).safeTransfer(feeRecipient, toRecipient);
-                if (baseFeeSplit < 100) {
+                if (baseFeeSplit < PERCENT) {
                     IERC20(token1).safeTransfer(affiliate, toAffiliate);
                 }
             }
@@ -318,15 +318,13 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
      @param tickLower The lower tick of the liquidity position
      @param tickUpper The upper tick of the liquidity position
      @param liquidity Amount of liquidity to mint
-     @param payer Payer account that supplies token0 and token1 tokens for the mint 
      @param amount0 Used amount of token0
      @param amount1 Used amount of token1
      */
     function _mintLiquidity(
         int24 tickLower,
         int24 tickUpper,
-        uint128 liquidity,
-        address payer
+        uint128 liquidity
     ) internal returns (uint256 amount0, uint256 amount1) {
       if (liquidity > 0) {
             (amount0, amount1) = IUniswapV3Pool(pool).mint(
@@ -334,7 +332,7 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
                 tickLower,
                 tickUpper,
                 liquidity,
-                abi.encode(payer)
+                abi.encode(address(this))
             );
         }
     }
@@ -483,9 +481,9 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
     {
         (uint128 positionLiquidity, uint128 tokensOwed0, uint128 tokensOwed1) = _position(baseLower, baseUpper);
         (amount0, amount1) = _amountsForLiquidity(baseLower, baseUpper, positionLiquidity);
+        liquidity = positionLiquidity;
         amount0 = amount0.add(uint256(tokensOwed0));
         amount1 = amount1.add(uint256(tokensOwed1));
-        liquidity = positionLiquidity;
     }
 
     /**
@@ -505,9 +503,9 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
     {
         (uint128 positionLiquidity, uint128 tokensOwed0, uint128 tokensOwed1) = _position(limitLower, limitUpper);
         (amount0, amount1) = _amountsForLiquidity(limitLower, limitUpper, positionLiquidity);
+        liquidity = positionLiquidity;
         amount0 = amount0.add(uint256(tokensOwed0));
         amount1 = amount1.add(uint256(tokensOwed1));
-        liquidity = positionLiquidity;
     }
 
     /**
@@ -579,6 +577,7 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
      */
     function setMaxTotalSupply(uint256 _maxTotalSupply) external onlyOwner {
         maxTotalSupply = _maxTotalSupply;
+        emit MaxTotalSupply(msg.sender, _maxTotalSupply);
     }
 
     /**
@@ -588,6 +587,7 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
      */
     function setAffiliate(address _affiliate) external onlyOwner {
         affiliate = _affiliate;
+        emit Affiliate(msg.sender, _affiliate);
     }
 
     /**
@@ -599,5 +599,6 @@ contract ICHIVault is IICHIVault, IUniswapV3MintCallback, IUniswapV3SwapCallback
     function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external override onlyOwner {
         deposit0Max = _deposit0Max;
         deposit1Max = _deposit1Max;
+        emit DepositMax(msg.sender, _deposit0Max, _deposit1Max);
     }
 }

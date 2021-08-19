@@ -6,8 +6,8 @@ interface IICHIVaultFactory {
 
     function uniswapV3Factory() external view returns(address);
     function feeRecipient() external view returns(address);
-    function baseFee() external view returns(uint8);
-    function baseFeeSplit() external view returns(uint8);
+    function baseFee() external view returns(uint256);
+    function baseFeeSplit() external view returns(uint256);
 
     event DeployICHIVaultFactory(
         address sender, 
@@ -30,4 +30,5 @@ interface IICHIVaultFactory {
             bool allowTokenB,
             uint24 fee
         ) external returns (address ichiVault);
+
 }
