@@ -58,7 +58,7 @@ describe('Access Control Checks', () => {
         ({ token0, token1, token2, factory, router, nft, ichiVaultFactory } = await loadFixture(ichiVaultTestFixture))
         await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
         
-        const ichiVaultAddress = await ichiVaultFactory.vaultSet(0);
+        const ichiVaultAddress = await ichiVaultFactory.allVaults(0);
         ichiVault = (await ethers.getContractAt('ICHIVault', ichiVaultAddress)) as ICHIVault
 
         const poolAddress = await factory.getPool(token0.address, token1.address, FeeAmount.MEDIUM)
@@ -124,7 +124,7 @@ describe('Input Validation Checks', () => {
         ({ token0, token1, token2, factory, router, nft, ichiVaultFactory } = await loadFixture(ichiVaultTestFixture))
         await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
         
-        const ichiVaultAddress = await ichiVaultFactory.vaultSet(0);
+        const ichiVaultAddress = await ichiVaultFactory.allVaults(0);
         ichiVault = (await ethers.getContractAt('ICHIVault', ichiVaultAddress)) as ICHIVault
 
         const poolAddress = await factory.getPool(token0.address, token1.address, FeeAmount.MEDIUM)

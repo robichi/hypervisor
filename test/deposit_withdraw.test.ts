@@ -6,6 +6,8 @@ import { fixture, ichiVaultTestFixture } from "./shared/fixtures"
 import { solidity } from "ethereum-waffle"
 const truffleAssert = require('truffle-assertions');
 
+const NULL_ADDRESS = "0x0000000000000000000000000000000000000000"
+
 chai.use(solidity)
 
 import {
@@ -57,10 +59,12 @@ describe('ICHIVault General Functionality', () => {
         // console.log("ICHIVault Factory " + ichiVaultFactory.address);
         // console.log("ICHIVault factory owner " + await ichiVaultFactory.owner());
         // console.log("wallet used to create new ICHIVaults " + wallet.address);
+        await ichiVaultFactory.connect(wallet).setFeeRecipient(other.address)
         await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true, FeeAmount.MEDIUM)
         
         let ichiVaultAddress = await ichiVaultFactory.getICHIVault(wallet.address, token0.address, token1.address, FeeAmount.MEDIUM, true, true);
         ichiVault = (await ethers.getContractAt('ICHIVault', ichiVaultAddress)) as ICHIVault
+        await ichiVault.connect(wallet).setAffiliate(bob.address)
         // console.log("ICHIVault address " + ichiVault.address);
 
         const poolAddress = await factory.getPool(token0.address, token1.address, FeeAmount.MEDIUM)
@@ -195,10 +199,14 @@ describe('ICHIVault General Functionality', () => {
         let tokenAmounts = await ichiVault.getTotalAmounts()
         let token0BeforeRebalanceSwap = tokenAmounts[0]
         let token1BeforeRebalanceSwap = tokenAmounts[1]
-        let fees0 = await token0.balanceOf(bob.address)
-        let fees1 = await token1.balanceOf(bob.address)
-        expect(fees0).to.equal(0)
-        expect(fees1).to.equal(0)
+        let fees0main = await token0.balanceOf(other.address)
+        let fees1main = await token1.balanceOf(other.address)
+        let fees0aff = await token0.balanceOf(bob.address)
+        let fees1aff = await token1.balanceOf(bob.address)
+        expect(fees0main).to.equal(0)
+        expect(fees1main).to.equal(0)
+        expect(fees0aff).to.equal(0)
+        expect(fees1aff).to.equal(0)
         let rebalanceSwapAmount = ethers.utils.parseEther('4000')
         await ichiVault.rebalance(-1800, 1920, limitLower, limitUpper, rebalanceSwapAmount)
         tokenAmounts = await ichiVault.getTotalAmounts()
@@ -208,15 +216,18 @@ describe('ICHIVault General Functionality', () => {
         token1vault = await token1.balanceOf(ichiVault.address)
         expect(token0vault).to.equal(0)
         expect(token1vault).to.equal(0)
-        fees0 = await token0.balanceOf(bob.address)
-        fees1 = await token1.balanceOf(bob.address)
-        //expect(fees0).to.gt(0)
-        //expect(fees1).to.equal(0)
+        fees0main = await token0.balanceOf(other.address)
+        fees1main = await token1.balanceOf(other.address)
+        fees0aff = await token0.balanceOf(bob.address)
+        fees1aff = await token1.balanceOf(bob.address)
+        if (fees0main > fees0aff)
+            expect(fees0main.sub(fees0aff)).to.lt(10)
+        if (fees0main <= fees0aff)
+            expect(fees0aff.sub(fees0main)).to.lt(10)
+        expect(fees0aff).to.gt(0)
+        expect(fees1aff).to.equal(0)
+        expect(fees1main).to.equal(0)
         
-        // ICHIVault does not allow extracting fees to a third party, so Bob get's no fees
-        expect(fees0).to.equal(0)
-        expect(fees1).to.equal(0)
-
         // have the positions been updated? Are the token amounts unchanged?
         basePosition = await ichiVault.getBasePosition()
         limitPosition = await ichiVault.getLimitPosition()
@@ -239,7 +250,10 @@ describe('ICHIVault General Functionality', () => {
         expect(tokenAmounts[1]).to.equal(0)
     })
 
-    it('calculates fees properly & rebalances to limit-only after large swap', async () => {
+    it('calculates fees properly & rebalances to limit-only after large swap (100/0)', async () => {
+        // remove affiliate, so all fees would go to the main recipient (100/0 split)
+        await ichiVault.connect(wallet).setAffiliate(NULL_ADDRESS)
+
         await token0.mint(alice.address, largeTokenAmount)
         await token1.mint(alice.address, largeTokenAmount)
 
@@ -299,8 +313,8 @@ describe('ICHIVault General Functionality', () => {
         // this is beyond the bounds of the original base position
         expect(currentTick).to.equal(-199)
 
-        let fees0 = await token0.balanceOf(bob.address)
-        let fees1 = await token1.balanceOf(bob.address)
+        let fees0 = await token0.balanceOf(other.address)
+        let fees1 = await token1.balanceOf(other.address)
         expect(fees0).to.equal(0)
         expect(fees1).to.equal(0)
         await ichiVault.rebalance(-1800, 1800, limitLower, limitUpper, 0)
@@ -308,13 +322,10 @@ describe('ICHIVault General Functionality', () => {
         token1vault = await token1.balanceOf(ichiVault.address)
         expect(token0vault).to.equal(0)
         expect(token1vault).to.equal(0)
-        fees0 = await token0.balanceOf(bob.address)
-        fees1 = await token1.balanceOf(bob.address)
-        // expect(fees0).to.gt(ethers.utils.parseEther('0.3'))
-        // expect(fees0).to.lt(ethers.utils.parseEther('0.305'))
-        // no fees from ICHIVault
-        expect(fees0).to.equal(0)
-        expect(fees1).to.equal(0)
+        fees0 = await token0.balanceOf(other.address)
+        fees1 = await token1.balanceOf(other.address)
+        expect(fees0).to.gt(ethers.utils.parseEther('0.3'))
+        expect(fees0).to.lt(ethers.utils.parseEther('0.305'))
         // have the positions been updated? Are the token amounts unchanged?
         basePosition = await ichiVault.getBasePosition()
         limitPosition = await ichiVault.getLimitPosition()
@@ -322,6 +333,12 @@ describe('ICHIVault General Functionality', () => {
         // only a single asset after carol's big swap
         expect(basePosition[0]).to.equal(0)
         expect(limitPosition[0]).to.be.gt(0)
+
+        // restore affiliate but set the split to 100/0, so it'll have the same effect
+        await ichiVault.connect(wallet).setAffiliate(bob.address)
+        await ichiVaultFactory.connect(wallet).setBaseFeeSplit(100)
+        // also set baseFee to 20%
+        await ichiVaultFactory.connect(wallet).setBaseFee(20)
 
         // swap everything back and check fees in the other token have
         // been earned
@@ -345,12 +362,10 @@ describe('ICHIVault General Functionality', () => {
         token1vault = await token1.balanceOf(ichiVault.address)
         expect(token0vault).to.equal(0)
         expect(token1vault).to.equal(0)
-        fees1 = await token1.balanceOf(bob.address)
+        fees1 = await token1.balanceOf(other.address)
         // we are expecting fees of approximately 3 bips (10% of 30bips, which is total fees)
-        // expect(fees1).to.gt(ethers.utils.parseEther('0.595'))
-        // expect(fees1).to.lt(ethers.utils.parseEther('0.605'))
-        // no fees from ICHIVault
-        expect(fees1).to.equal(0)
+        expect(fees1).to.gt(ethers.utils.parseEther('1.190'))
+        expect(fees1).to.lt(ethers.utils.parseEther('1.210'))
 
         // have the positions been updated? Are the token amounts unchanged?
         basePosition = await ichiVault.getBasePosition()
@@ -359,6 +374,151 @@ describe('ICHIVault General Functionality', () => {
         // only a single asset after carol's big swap
         expect(basePosition[0]).to.equal(0)
         expect(limitPosition[0]).to.be.gt(0)
+
+        // restore affiliate and split
+        await ichiVault.connect(wallet).setAffiliate(bob.address)
+        await ichiVaultFactory.connect(wallet).setBaseFeeSplit(50)
+        await ichiVaultFactory.connect(wallet).setBaseFee(10)
+    })
+
+    it('calculates fees properly & rebalances to limit-only after large swap (40/60, 0/100)', async () => {
+        // restore affiliate but set the split to 0/100
+        await ichiVault.connect(wallet).setAffiliate(bob.address)
+        await ichiVaultFactory.connect(wallet).setBaseFeeSplit(0)
+
+        await token0.mint(alice.address, largeTokenAmount)
+        await token1.mint(alice.address, largeTokenAmount)
+
+        await token0.connect(alice).approve(ichiVault.address, largeTokenAmount)
+        await token1.connect(alice).approve(ichiVault.address, largeTokenAmount)
+
+        // alice should start with 0 ICHIVault tokens
+        let alice_liq_balance = await ichiVault.balanceOf(alice.address)
+        expect(alice_liq_balance).to.equal(0)
+
+        await ichiVault.connect(alice).deposit(smallTokenAmount, smallTokenAmount, alice.address)
+
+        let token0vault = await token0.balanceOf(ichiVault.address)
+        let token1vault = await token1.balanceOf(ichiVault.address)
+        expect(token0vault).to.equal(smallTokenAmount)
+        expect(token1vault).to.equal(smallTokenAmount)
+        alice_liq_balance = await ichiVault.balanceOf(alice.address)
+
+        // check that alice has been awarded liquidity tokens equal the
+        // quantity of tokens deposited since their price is the same
+        expect(alice_liq_balance).to.equal(ethers.utils.parseEther('2000'))
+
+        // liquidity positions will only be created once rebalance is called
+        await ichiVault.rebalance(-120, 120, -60, 0, 0)
+        token0vault = await token0.balanceOf(ichiVault.address)
+        token1vault = await token1.balanceOf(ichiVault.address)
+        expect(token0vault).to.equal(0)
+        expect(token1vault).to.equal(0)
+
+        let basePosition = await ichiVault.getBasePosition()
+        let limitPosition = await ichiVault.getLimitPosition()
+        expect(basePosition[0]).to.be.gt(0)
+        expect(limitPosition[0]).to.be.equal(0)
+
+        let tokenAmounts = await ichiVault.getTotalAmounts()
+        expect(tokenAmounts[0] === tokenAmounts[1])
+
+        // do a test swap
+        await token0.connect(carol).approve(router.address, veryLargeTokenAmount)
+        await token1.connect(carol).approve(router.address, veryLargeTokenAmount)
+        await router.connect(carol).exactInputSingle({
+            tokenIn: token0.address,
+            tokenOut: token1.address,
+            fee: FeeAmount.MEDIUM,
+            recipient: carol.address,
+            deadline: 2000000000, // Wed May 18 2033 03:33:20 GMT+0000
+            amountIn: ethers.utils.parseEther('100000000'),
+            amountOutMinimum: ethers.utils.parseEther('0'),
+            sqrtPriceLimitX96: 0,
+        })
+
+        let limitUpper = 0
+        let limitLower = -180
+        tokenAmounts = await ichiVault.getTotalAmounts()
+        expect(tokenAmounts[0] > tokenAmounts[1])
+        let currentTick = await ichiVault.currentTick()
+        // this is beyond the bounds of the original base position
+        expect(currentTick).to.equal(-199)
+
+        let fees0main = await token0.balanceOf(other.address)
+        let fees1main = await token1.balanceOf(other.address)
+        let fees0aff = await token0.balanceOf(bob.address)
+        let fees1aff = await token1.balanceOf(bob.address)
+        expect(fees0aff).to.equal(0)
+        expect(fees1aff).to.equal(0)
+
+        await ichiVault.rebalance(-1800, 1800, limitLower, limitUpper, 0)
+        token0vault = await token0.balanceOf(ichiVault.address)
+        token1vault = await token1.balanceOf(ichiVault.address)
+        expect(token0vault).to.equal(0)
+        expect(token1vault).to.equal(0)
+        fees0main = await token0.balanceOf(other.address)
+        fees1main = await token1.balanceOf(other.address)
+        fees0aff = await token0.balanceOf(bob.address)
+        fees1aff = await token1.balanceOf(bob.address)
+        expect(fees0main).to.equal(0)
+        expect(fees1main).to.equal(0)
+        expect(fees0aff).to.gt(ethers.utils.parseEther('0.295'))
+        expect(fees0aff).to.lt(ethers.utils.parseEther('0.305'))
+        // have the positions been updated? Are the token amounts unchanged?
+        basePosition = await ichiVault.getBasePosition()
+        limitPosition = await ichiVault.getLimitPosition()
+        // the base position should have 0 liquidity because we are left with
+        // only a single asset after carol's big swap
+        expect(basePosition[0]).to.equal(0)
+        expect(limitPosition[0]).to.be.gt(0)
+
+        // swap everything back and check fees in the other token have
+        // been earned
+        await router.connect(carol).exactInputSingle({
+            tokenIn: token1.address,
+            tokenOut: token0.address,
+            fee: FeeAmount.MEDIUM,
+            recipient: carol.address,
+            deadline: 2000000000, // Wed May 18 2033 03:33:20 GMT+0000
+            amountIn: ethers.utils.parseEther('200000000'),
+            amountOutMinimum: ethers.utils.parseEther('0'),
+            sqrtPriceLimitX96: 0,
+        })
+        currentTick = await ichiVault.currentTick()
+
+        // set split as 40/60
+        await ichiVaultFactory.connect(wallet).setBaseFeeSplit(40)
+
+        // this is beyond the bounds of the original base position
+        expect(currentTick).to.equal(200)
+        limitUpper = 180
+        limitLower = 0
+        await ichiVault.rebalance(-1800, 1800, limitLower, limitUpper, 0)
+        token0vault = await token0.balanceOf(ichiVault.address)
+        token1vault = await token1.balanceOf(ichiVault.address)
+        expect(token0vault).to.equal(0)
+        expect(token1vault).to.equal(0)
+        fees1main = await token1.balanceOf(other.address)
+        fees1aff = await token1.balanceOf(bob.address)
+        // we are expecting fees of approximately 3 bips (10% of 30bips, which is total fees)
+        // and adjust for 40/60
+        expect(fees1main).to.gt(ethers.utils.parseEther('0.235'))
+        expect(fees1main).to.lt(ethers.utils.parseEther('0.245'))
+        expect(fees1aff).to.gt(ethers.utils.parseEther('0.355'))
+        expect(fees1aff).to.lt(ethers.utils.parseEther('0.365'))
+
+        // have the positions been updated? Are the token amounts unchanged?
+        basePosition = await ichiVault.getBasePosition()
+        limitPosition = await ichiVault.getLimitPosition()
+        // the base position should have 0 liquidity because we are left with
+        // only a single asset after carol's big swap
+        expect(basePosition[0]).to.equal(0)
+        expect(limitPosition[0]).to.be.gt(0)
+
+        // restore affiliate and 50/50 split
+        await ichiVault.connect(wallet).setAffiliate(bob.address)
+        await ichiVaultFactory.connect(wallet).setBaseFeeSplit(50)
     })
 
     it('deposit/withdrawal with many users', async () => {

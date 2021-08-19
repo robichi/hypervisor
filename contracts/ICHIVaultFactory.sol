@@ -22,7 +22,7 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
      @notice getICHIVault allows direct lookup for ICHIVaults using token0/token1/fee/allowToken0/allowToken1 values
      */
     mapping(address => mapping(address => mapping(address => mapping(uint24 => mapping(bool => mapping(bool => address)))))) public getICHIVault; // deployer, token0, token1, fee, allowToken1, allowToken2 -> ichiVault address
-    address[] public vaultSet;
+    address[] public allVaults;
 
     /**
      @notice creates an instance of ICHIVaultFactory
@@ -76,9 +76,9 @@ contract ICHIVaultFactory is IICHIVaultFactory, Ownable {
 
         getICHIVault[msg.sender][token0][token1][fee][allowToken0][allowToken1] = ichiVault;
         getICHIVault[msg.sender][token1][token0][fee][allowToken1][allowToken0] = ichiVault; // populate mapping in the reverse direction
-        vaultSet.push(ichiVault);
+        allVaults.push(ichiVault);
 
-        emit ICHIVaultCreated(msg.sender, ichiVault, token0, allowToken0, token1, allowToken1, fee, vaultSet.length);
+        emit ICHIVaultCreated(msg.sender, ichiVault, token0, allowToken0, token1, allowToken1, fee, allVaults.length);
     }
 
     /**
